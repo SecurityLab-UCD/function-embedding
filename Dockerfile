@@ -46,11 +46,12 @@ RUN apt install -y python-is-python3
 RUN cd $POJ/dataset && \ 
     python preprocess.py
 
-COPY build.sh $EMBDING_HOME/build.sh
+COPY scripts $EMBDING_HOME/scripts
+COPY seeds $EMBDING_HOME/seeds
 COPY header.hpp $EMBDING_HOME/header.hpp
 
 # Compile C files into executable.
-# TODO
+# RUN cd $HOME && ./build.sh
 
 # Don't setup timeout until fuzzing to max cache usage.
 ARG TIMEOUT=60
