@@ -1,19 +1,31 @@
+#!/bin/bash
 source $EMBDING_HOME/scripts/common.sh
 
-if [ -d $EMBDING_HOME/output ]; then
-    echo "Output dir already exists, not fuzzing."
-    exit
+if [ -z $OUTPUT ]; then
+    warning "OUTPUT is not set, using default: $EMBDING_HOME/output"
+    export OUTPUT=$EMBDING_HOME/output
+fi
+if [ -d $OUTPUT ]; then
+    warning "Output dir already exists."
 fi
 
 # Allow at most $CORES parallel jobs
 open_sem $CORES
 
-mkdir -p $EMBDING_HOME/output
+mkdir -fp $OUTPUT
 for I in $PROBLEMS; do
     BINDIR=$POJ/dataset/build/bin/$I
-    mkdir -p $EMBDING_HOME/output/$I
+    mkdir -p $OUTPUT/$I
     cd $BINDIR
     for P in *; do
-        run_with_lock timeout --signal=2 $TIMEOUT $AFL/afl-fuzz -i $EMBDING_HOME/seeds -o $EMBDING_HOME/output/$I/$P $BINDIR/$P
+        FUZZOUT=$OUTPUT/$I/$P
+        if [ ! -d $FUZZOUT ]; then
+            run_with_lock $AFL/afl-fuzz -V $TIMEOUT -i $EMBDING_HOME/seeds -o $FUZZOUT $BINDIR/$P
+            # Give afl-fuzz sometime to bind core.
+            sleep 0.5
+        fi
     done
 done
+
+# Wait for all jobs to finish
+wait

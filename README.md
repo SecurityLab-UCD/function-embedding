@@ -1,14 +1,11 @@
 # Function embedding
 
+This repo is supposed to serve as a home to all operations whether you are using docker or running on your native server.
+
 ## Docker
 
 `docker build .`
 
 ## Local
 
-```sh
-export EMBDING_HOME=`pwd`
-export POJ=$EMBDING_HOME/CodeXGLUE/Code-Code/Clone-detection-POJ-104/
-export TIMEOUT=60
-export AFL=$EMBDING_HOME/AFLplusplus
-```
+See `scripts/env.sh`

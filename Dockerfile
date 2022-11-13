@@ -54,5 +54,4 @@ COPY header.hpp $EMBDING_HOME/header.hpp
 # RUN cd $HOME && ./build.sh
 
 # Don't setup timeout until fuzzing to max cache usage.
-ARG TIMEOUT=60
-ENV TIMEOUT=$TIMEOUT
+ENTRYPOINT ["/app/entrypoint.sh"]
