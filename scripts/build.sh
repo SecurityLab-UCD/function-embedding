@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 source $EMBDING_HOME/scripts/common.sh
 
 # Allow at most $CORES parallel jobs

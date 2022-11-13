@@ -7,12 +7,17 @@ if [ -z $OUTPUT ]; then
 fi
 if [ -d $OUTPUT ]; then
     warning "Output dir already exists."
+else
+    mkdir -p $OUTPUT
+fi
+if [ -z $TIMEOUT ]; then
+    warning "TIMEOUT aren't set, default to 60."
+    TIMEOUT=60
 fi
 
 # Allow at most $CORES parallel jobs
 open_sem $CORES
 
-mkdir -fp $OUTPUT
 for I in $PROBLEMS; do
     BINDIR=$POJ/dataset/build/bin/$I
     mkdir -p $OUTPUT/$I

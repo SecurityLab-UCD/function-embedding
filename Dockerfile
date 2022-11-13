@@ -52,6 +52,3 @@ COPY header.hpp $EMBDING_HOME/header.hpp
 
 # Compile C files into executable.
 # RUN cd $HOME && ./build.sh
-
-# Don't setup timeout until fuzzing to max cache usage.
-ENTRYPOINT ["/app/entrypoint.sh"]
