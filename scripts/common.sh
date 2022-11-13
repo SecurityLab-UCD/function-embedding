@@ -57,4 +57,4 @@ run_with_lock(){
 
 
 PROBLEMS=`seq 1 104`
-PROBLEMS=`seq 1 4`
+# PROBLEMS=`seq 1 4`

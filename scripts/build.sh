@@ -9,7 +9,6 @@ mkdir -p $POJ/dataset/src
 mkdir -p $POJ/dataset/build/bin
 
 for I in $PROBLEMS; do
-    echo $I
     SRCDIR=$POJ/dataset/src/$I
     TXTDIR=$POJ/dataset/ProgramData/$I
     OUTDIR=$POJ/dataset/build/bin/$I
@@ -19,7 +18,6 @@ for I in $PROBLEMS; do
     for P in *; do
         P=${P%.txt*};
         if [ ! -f $SRCDIR/$P.cpp ]; then
-            echo "Processing $I/$P"
             # TODO: Maybe in the future use scripts, maybe even customized scripts to 
             # preprocess these programs.
             touch $SRCDIR/$P.cpp
@@ -28,7 +26,6 @@ for I in $PROBLEMS; do
             sed -i 's/void main/int main/g' $SRCDIR/$P.cpp
         fi
         if [ ! -f $OUTDIR/$P ]; then
-            echo "Compiling $I/$P"
             run_with_lock $AFL/afl-clang-fast++ -O0 $SRCDIR/$P.cpp -o $OUTDIR/$P
         fi 
     done
