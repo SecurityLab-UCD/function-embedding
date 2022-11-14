@@ -51,4 +51,4 @@ COPY seeds $EMBDING_HOME/seeds
 COPY header.hpp $EMBDING_HOME/header.hpp
 
 # Compile C files into executable.
-# RUN cd $HOME && ./build.sh
+# RUN cd $EMBDING_HOME && ./build.sh
