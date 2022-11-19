@@ -55,6 +55,7 @@ run_with_lock(){
 }
 
 
-
-PROBLEMS=`seq 1 104`
-# PROBLEMS=`seq 1 4`
+if [ -z $PROBLEMS ]; then
+    PROBLEMS=`seq 1 104`
+    info "PROBLEMS not set, default to all problems."
+fi
