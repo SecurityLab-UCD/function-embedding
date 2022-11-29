@@ -6,6 +6,9 @@
 // https://stackoverflow.com/questions/2124339/c-preprocessor-va-args-number-of-arguments
 #define NUMARGS(...) (sizeof((int*){__VA_ARGS__}) / sizeof(int))
 
+// @param val value to print to stderr
+#define PRINT_STDERR(val) \
+    fprintf(stderr, pfmt, name_tokens[i], type_tokens[i], val)
 // do scanf and then print to stdout in format
 //  variable_name type value
 // Usage: same as scanf
@@ -35,20 +38,19 @@
             }                                                                         \
         }                                                                             \
                                                                                       \
-        for (int i = 0; i < narg; i++) {                                              \
-            char pfmt[10] = "%s,%c,%";                                                \
-            pfmt[7] = type_tokens[i];                                                 \
-            pfmt[8] = '\n';                                                           \
-            switch (type_tokens[i]) {                                                 \
-                case 'd':                                                             \
-                    printf(pfmt, name_tokens[i], type_tokens[i], *(int*)values[i]);   \
-                    break;                                                            \
-                case 'f':                                                             \
-                    printf(pfmt, name_tokens[i], type_tokens[i], *(float*)values[i]); \
-                    break;                                                            \
-                default:                                                              \
-                    printf(pfmt, name_tokens[i], type_tokens[i], *values[i]);         \
-            }                                                                         \
-        }                                                                             \
+        for (int i = 0; i < narg; i++) {              \
+            char pfmt[10] = "%s,%c,%";                \
+            pfmt[7] = type_tokens[i];                 \
+            pfmt[8] = '\n';                           \
+            switch (type_tokens[i]) {                 \
+                case 'd':                             \
+                    PRINT_STDERR(*(int*)values[i]);   \
+                    break;                            \
+                case 'f':                             \
+                    PRINT_STDERR(*(float*)values[i]); \
+                    break;                            \
+                default:                              \
+                    PRINT_STDERR(*values[i]);         \
+            }                                         \
+        }                                             \
     }
-

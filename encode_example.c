@@ -1,4 +1,3 @@
-#include "header.hpp"
 #include "encode2stdout.h"
 
 int main(int argc, char** argv) {
