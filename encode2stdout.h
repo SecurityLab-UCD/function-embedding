@@ -27,7 +27,8 @@
         }                                                                             \
                                                                                       \
         idx = 0;                                                                      \
-        for (int i = 0; i < strlen(fmt); i++) {                                       \
+        int len = strlen(fmt);                                                        \
+        for (int i = 0; i < len; i++) {                                               \
             if (fmt[i] == '%') {                                                      \
                 type_tokens[idx] = fmt[i + 1];                                        \
                 idx++;                                                                \
@@ -35,7 +36,7 @@
         }                                                                             \
                                                                                       \
         for (int i = 0; i < narg; i++) {                                              \
-            char pfmt[10] = "%s %c %";                                                \
+            char pfmt[10] = "%s,%c,%";                                                \
             pfmt[7] = type_tokens[i];                                                 \
             pfmt[8] = '\n';                                                           \
             switch (type_tokens[i]) {                                                 \
