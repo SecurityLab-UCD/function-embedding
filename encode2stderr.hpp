@@ -1,11 +1,9 @@
 
 #include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
+#include <assert.h>
 
-#include <algorithm>
 #include <iostream>
-#include <iterator>
 #include <set>
 #include <sstream>
 #include <string>
@@ -36,6 +34,7 @@ const std::set<std::string> FORMAT_TYPES = {
     "g",
     "hi",
     "hu",
+    "hd",
     "i",
     "l",
     "ld",
@@ -52,7 +51,6 @@ const std::set<std::string> FORMAT_TYPES = {
     "u",
     "x",
     "n",
-    "%",
 };
 
 std::vector<std::string> split_fmt_types(std::string fmt) {
@@ -97,9 +95,26 @@ std::vector<std::string> split_fmt_types(std::string fmt) {
 
 void print_stderr(std::string name, std::string type, void* val_ptr) {
     std::string pfmt = "%s,%s,%" + type + "\n";
-    // TODO: complete for all types
-    if (type == "d") {
+
+    // in POJ-104, only the following appears
+    // c, s, u, lu, d, ld, lld, hd, f, lf
+    // according to https://www.cs.uic.edu/~jbell/CourseNotes/C_Programming/DataTypesSummary.pdf
+    if (type == "c") {
+        fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(char*)val_ptr);
+    } else if (type == "s") {
+        fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), (char*)val_ptr);
+    } else if (type == "u") {
+        fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(unsigned*)val_ptr);
+    } else if (type == "lu") {
+        fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(unsigned long*)val_ptr);
+    } else if (type == "d") {
         fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(int*)val_ptr);
+    } else if (type == "ld") {
+        fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(long*)val_ptr);
+    } else if (type == "lld") {
+        fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(long long*)val_ptr);
+    } else if (type == "hd") {
+        fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(short*)val_ptr);
     } else if (type == "f") {
         fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(float*)val_ptr);
     } else if (type == "lf" || type == "Lf") {
