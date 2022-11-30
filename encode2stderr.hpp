@@ -130,3 +130,10 @@ void print_stderr(std::string name, std::string type, void* val_ptr) {
             print_stderr(name_tokens[i], type_tokens[i], values[i]);              \
         }                                                                         \
     }
+
+// macro for cin
+#define CIN(x)                                \
+    {                                         \
+        std::cin >> x;                        \
+        std::cerr << #x << ",," << x << "\n"; \
+    }
