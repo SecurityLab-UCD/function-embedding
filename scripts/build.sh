@@ -22,11 +22,15 @@ for I in $PROBLEMS; do
             # preprocess these programs.
             touch $SRCDIR/$P.cpp
             cat $EMBDING_HOME/header.hpp >> $SRCDIR/$P.cpp
-            cat $TXTDIR/$P.txt >> $SRCDIR/$P.cpp
+            cat $EMBDING_HOME/encode2stderr.hpp >> $SRCDIR/$P.cpp
+            # TODO combine reokace_input into fix.py in hyf-dev
+            python3.8 $EMBDING_HOME/scripts/replace_input.py $TXTDIR/$P.txt >> $SRCDIR/$P.cpp
             sed -i 's/void main/int main/g' $SRCDIR/$P.cpp
         fi
         if [ ! -f $OUTDIR/$P ]; then
-            run_with_lock $AFL/afl-clang-fast++ -O0 $SRCDIR/$P.cpp -o $OUTDIR/$P
+            # TODO: check if file contains `gets()` then use --std=c++11
+            # error indexing is down in branch hyf-dev
+            run_with_lock $AFL/afl-clang-fast++ -O0 $SRCDIR/$P.cpp -o $OUTDIR/$P --std=c++11
         fi 
     done
 done
