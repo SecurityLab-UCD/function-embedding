@@ -10,9 +10,6 @@ if [ ! -d $OUTPUT ]; then
     exit
 fi
 
-mkdir -p $EMBDING_HOME/errout
-ERROUT=$EMBDING_HOME/errout
-
 # Allow at most $CORES parallel jobs
 open_sem $CORES
 
