@@ -10,9 +10,6 @@ if [ ! -d $OUTPUT ]; then
     exit
 fi
 
-mkdir -p $EMBDING_HOME/errout
-ERROUT=$EMBDING_HOME/errout
-
 # Allow at most $CORES parallel jobs
 open_sem $CORES
 
@@ -26,13 +23,14 @@ for I in $PROBLEMS; do
         # if [ ! -d $FUZZOUT/output ] && [ -d $FUZZOUT/queue ]; then
         if [ -d $FUZZOUT/queue ]; then
             mkdir -p $FUZZOUT/output
+            mkdir -p $FUZZOUT/input_csv
             cd $FUZZOUT/queue
             for Q in *; do
                 info $FUZZOUT/queue/$Q
                 # Has to use bash or the stdin/stdout redirector will be ignored.
                 run_with_lock timeout 1\
                     bash -c\
-                    "$POJ/dataset/build/bin/$I/$P < $FUZZOUT/queue/$Q 1> $FUZZOUT/output/$Q 2> $ERROUT/$I/$P.csv"
+                    "$POJ/dataset/build/bin/$I/$P < $FUZZOUT/queue/$Q 1> $FUZZOUT/output/$Q 2> $FUZZOUT/input_csv/$Q.csv"
             done
         fi
     done
