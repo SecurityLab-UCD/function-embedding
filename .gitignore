@@ -6,3 +6,7 @@ list.txt
 O
 output*
 */__pycache__
+lib
+*.txt
+POJ
+*.pkl
