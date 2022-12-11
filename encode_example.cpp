@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
   string loop_msg = "Enter int, or exit with EOF (CTRL+D)\n";
   int scanf_loop_buff;
   cout << loop_msg;
-  while (SCANF_ALT(" %d", &scanf_loop_buff)) {
+  while (SCANF_ALT(" %d", &scanf_loop_buff) != EOF) {
     cout << loop_msg;
   }
 
