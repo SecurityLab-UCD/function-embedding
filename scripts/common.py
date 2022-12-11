@@ -36,6 +36,7 @@ if EMBDING_HOME == None:
     exit(1)
 
 PROBLEMS = list(range(1, 105))
+PROBLEMS = [1]
 
 __T = TypeVar("__T")
 __R = TypeVar("__R")

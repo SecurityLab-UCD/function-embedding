@@ -20,24 +20,33 @@ def tokenize(fpath: str):
     return tokens
 
 
-def get_value(token_tuple):
-    if token_tuple[1] == TokenType.KEYWORD:
-        return token_tuple[0] + " "
-    if token_tuple[1] == TokenType.COMMENT_SYMBOL:
-        return token_tuple[0] + "\n"
-    return token_tuple[0]
-
-
-def write_tokens(tokens, fpath: str):
-    fixed_file = reduce(lambda s, token: s + get_value(token), tokens, "")
-    with open(fpath, "w") as f:
-        f.write(fixed_file)
+# TODO: Should use an IOWrapper to write to file or string.
+def assemble_tokens_and_write(tokens, cpp_path: str):
+    with open(cpp_path, "w") as f:
+        for i in range(len(tokens)):
+            token_val, token_type = tokens[i]
+            f.write(token_val)
+            if token_type == TokenType.KEYWORD:
+                f.write(" ")
+            if token_type == TokenType.COMMENT_SYMBOL:
+                f.write("\n")
+            if (
+                token_type == TokenType.OPERATOR
+                and token_val == ">"
+                and tokens[i - 2][1] == TokenType.OPERATOR
+                and tokens[i - 2][0] == "<"
+                and tokens[i - 3][1] == TokenType.KEYWORD
+                and tokens[i - 3][0] == "include"
+            ):
+                f.write("\n")
+            if token_val == "{" or token_val == "}" or token_val == ";":
+                f.write("\n")
 
 
 class FixStrategy:
     _description: str
     _isMatch: Callable[[Report, CompilerReport], bool]
-    _fix: Callable[[str, Report, CompilerReport]]
+    _fix: Callable[[str, Report, CompilerReport], None]
 
     def __init__(self, description, isMatch, fix):
         self._description = description
@@ -55,17 +64,14 @@ class FixStrategy:
 
 
 # Main does not return int
-def _fix_main_returned_non_int(cpp_path: str, _, _):
-    with open(cpp_path, "r") as f:
-        lines = f.readlines()
-    idx = 0
-    while idx < len(lines):
-        if "void main(" in lines[idx]:
-            lines[idx] = lines[idx].replace("void main(", "int main(")
-            break
-        idx += 1
-    with open(cpp_path, "w") as f:
-        f.writelines(lines)
+def _fix_main_returned_non_int(cpp_path: str, r: Report, cr: CompilerReport):
+    tokens = tokenize(cpp_path)
+    main_idx = tokens.index(("main", TokenType.IDENTIFIER))
+    prev_val, prev_type = tokens[main_idx - 1]
+    int_token = ("int", TokenType.KEYWORD)
+    if prev_type == TokenType.KEYWORD and prev_val in CPP_TYPE_SET:
+        tokens[main_idx - 1] = int_token
+    assemble_tokens_and_write(tokens, cpp_path)
 
 
 fix_main_returned_non_int = FixStrategy(
@@ -76,29 +82,29 @@ fix_main_returned_non_int = FixStrategy(
 
 
 # Main has no return type
-def _fix_main_has_no_return_type(cpp_path: str, _, _):
-    with open(cpp_path, "r") as f:
-        lines = f.readlines()
-    idx = 0
-    while idx < len(lines):
-        if "main(" in lines[idx]:
-            lines[idx] = lines[idx].replace("main(", "int main(")
-            break
-        idx += 1
-    with open(cpp_path, "w") as f:
-        f.writelines(lines)
+def _fix_main_has_no_return_type(cpp_path: str, r: Report, cr: CompilerReport):
+    tokens = tokenize(cpp_path)
+    main_idx = tokens.index(("main", TokenType.IDENTIFIER))
+    int_token = ("int", TokenType.KEYWORD)
+    tokens = tokens[:main_idx] + [int_token] + tokens[main_idx:]
+    assemble_tokens_and_write(tokens, cpp_path)
 
 
 main_has_no_return_type = FixStrategy(
-    "main returned non int",
+    "main has no return type",
     lambda r, _: r.main_has_no_return_type(),
     _fix_main_has_no_return_type,
 )
 
 
-def _fix_use_of_std_keyword(cpp_path: str, _, cr: CompilerReport):
+def _fix_use_of_std_keyword(cpp_path: str, r: Report, cr: CompilerReport):
+    tokens = tokenize(cpp_path)
     keywords = cr.get_keywords_used()
-    # TODO: Tokenize and replace keywords
+    for i in range(len(tokens)):
+        token_val, token_type = tokens[i]
+        if token_val in keywords:
+            tokens[i] = ("_" + token_val, token_type)
+    assemble_tokens_and_write(tokens, cpp_path)
 
 
 # Cpp stdlib keyword
@@ -139,18 +145,18 @@ def main():
     with open("./O", "r") as f:
         lines = []
         info("Converting stderr into CompilerReport")
-        for line in tqdm(f):
+        for line in f:
             lines.append(line[:-1])
             if "generated." in line:
                 cr = CompilerReport(lines)
-                info("New report created")
                 for r in cr.error_list:
                     for strategy in FIX_STRATEGIES:
                         if strategy.isMatch(r, cr):
-                            info(f'Strategy "{strategy}" matches')
                             strategy.fix(cr.get_path(), r, cr)
                 lines = []
 
 
 if __name__ == "__main__":
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.INFO)
     main()
