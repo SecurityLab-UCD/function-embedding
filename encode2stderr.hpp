@@ -93,7 +93,7 @@ std::vector<std::string> split_fmt_types(std::string fmt) {
     return res;
 }
 
-void print_stderr(std::string name, std::string type, void* val_ptr) {
+void print_stderr(std::string name, std::string type, const void* val_ptr) {
     std::string pfmt = "%s,%s,%" + type + "\n";
 
     // in POJ-104, only the following appears
@@ -126,25 +126,29 @@ void print_stderr(std::string name, std::string type, void* val_ptr) {
     }
 }
 
+// https://en.cppreference.com/w/cpp/language/parameter_pack
+template<class... Args>
+int scanf_alt(std::string fmt, std::string names, Args const&...args) {
+    int scanf_return_val = scanf(fmt.c_str(), args...);
+
+    // this tuple_size method to count args only works for c++11 and above
+    int narg = std::tuple_size<decltype(std::make_tuple(args...))>::value;
+    const void* values[] = {args...};
+    std::vector<std::string> name_tokens = split_var_names(names);
+    std::vector<std::string> type_tokens = split_fmt_types(fmt);
+    assert(name_tokens.size() == narg);
+    assert(type_tokens.size() == narg);
+
+    for (int i = 0; i < narg; i++) {
+        print_stderr(name_tokens[i], type_tokens[i], values[i]);
+    }
+    return scanf_return_val;
+}
+
 // do scanf and then print to stdout in format
 //  variable_name type value
 // Usage: same as scanf
-#define SCANF_ALT(fmt, args...)                                                   \
-    {                                                                             \
-        scanf(fmt, args);                                                         \
-        /* this tuple_size method to count args only works for c++11 and above */ \
-        int narg = std::tuple_size<decltype(std::make_tuple(args))>::value;       \
-        std::string names = #args;                                                \
-        std::vector<std::string> name_tokens = split_var_names(names);            \
-        std::vector<std::string> type_tokens = split_fmt_types(fmt);              \
-        void* values[] = {args};                                                  \
-        assert(name_tokens.size() == narg);                                       \
-        assert(type_tokens.size() == narg);                                       \
-                                                                                  \
-        for (int i = 0; i < narg; i++) {                                          \
-            print_stderr(name_tokens[i], type_tokens[i], values[i]);              \
-        }                                                                         \
-    }
+#define SCANF_ALT(fmt, args...) scanf_alt(fmt, #args, args)
 
 // macro for cin
 #define CIN(x)                                \
