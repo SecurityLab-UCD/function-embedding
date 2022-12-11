@@ -22,6 +22,7 @@ def preprocess_textfile(txt_path, src_path):
 
 def compile_one_file(p: Tuple[str, str]):
     src, dst = p
+    # TODO: if src in blacklist, use another copmile strategy.
     return subprocess.Popen(
         [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst],
         stdout=subprocess.PIPE,
@@ -36,11 +37,6 @@ def dump_stderr_on_exit(p: subprocess.Popen):
     # TODO: Change fixed ./O output file.
     with open("O", "a") as f:
         f.write(p.stderr.read().decode())
-
-
-SRCDIR = path.join(POJ, "dataset", "src")
-TXTDIR = path.join(POJ, "dataset", "ProgramData")
-BINDIR = path.join(POJ, "dataset", "build", "bin")
 
 
 def mkdir_if_doesnt_exist(dir):
