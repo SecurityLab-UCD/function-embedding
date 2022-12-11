@@ -1,6 +1,7 @@
 import logging
 from logging import error, info, warn
 import os
+from os import path
 from typing import Iterable, Callable, Set, Tuple, TypeVar, Optional, Dict
 import subprocess
 from tqdm import tqdm
@@ -9,6 +10,9 @@ POJ = os.getenv("POJ")
 if POJ == None:
     error("POJ not set, please tell me where the code is.")
     exit(1)
+SRCDIR = path.join(POJ, "dataset", "src")
+TXTDIR = path.join(POJ, "dataset", "ProgramData")
+BINDIR = path.join(POJ, "dataset", "build", "bin")
 
 AFL = os.getenv("AFL")
 if AFL == None:
@@ -23,8 +27,8 @@ CORES = os.getenv("CORES")
 if CORES == None:
     import multiprocessing
 
-    warn("CORES not set, default to all cores. (nproc = $CORES)")
     CORES = multiprocessing.cpu_count()
+    warn(f"CORES not set, default to all cores. (nproc = {CORES})")
 
 EMBDING_HOME = os.getenv("EMBDING_HOME")
 if EMBDING_HOME == None:
@@ -35,6 +39,11 @@ PROBLEMS = list(range(1, 105))
 
 __T = TypeVar("__T")
 __R = TypeVar("__R")
+
+
+def unreachable(s: str = ""):
+    error(f"Unreachable executed: {str}")
+    exit(1)
 
 
 def parallel_subprocess(
