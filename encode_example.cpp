@@ -27,6 +27,15 @@ int main(int argc, char** argv) {
     short* ptr_var = &si_var;
     SCANF_ALT(" %hd", ptr_var);
 
+    string loop_msg = "Enter int, or exit with EOF (CTRL+D)\n";
+    int scanf_loop_buff;
+    cout << loop_msg;
+    while(SCANF_ALT(" %d", &scanf_loop_buff)) {
+      cout << loop_msg;
+    }
+
+
+
     cout << "CIN int\n";
     int e;
     CIN(e);
@@ -42,6 +51,12 @@ int main(int argc, char** argv) {
     cout << "CIN string\n";
     std::string h;
     CIN(h);
+
+    int cin_loop_buff;
+    cout << loop_msg;
+    while (CIN(cin_loop_buff)) {
+      cout << loop_msg;
+    }
 
     return 0;
 }
