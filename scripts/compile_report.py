@@ -20,7 +20,7 @@ class Report:
     def main_has_no_return_type(self):
         return (
             "C++ requires a type specifier for all declarations" in self.lines[0]
-            and "main()" in self.lines[1]
+            and "main" in self.lines[1]
         )
 
     def struct_len_undefined(self):
@@ -63,7 +63,7 @@ class CompilerReport:
         words = last_line.split(" ")
         if words[1] == "warning":
             self.num_warnings = int(words[0])
-            self.num_errors = int(words[3])
+            self.num_errors = int(words[3]) if "error" in last_line else 0
         elif words[1] == "error":
             self.num_warnings = 0
             self.num_errors = int(words[0])
@@ -93,11 +93,11 @@ class CompilerReport:
     def get_path(self) -> str:
         return os.path.join(SRCDIR, str(self.p), str(self.i) + ".cpp")
 
-    def get_keywords_used(self) -> List[str]:
-        ret = []
+    def get_keywords_used(self) -> Set[str]:
+        ret = set()
         for r in self.error_list:
             if r.use_of_std_keyword():
-                ret.append(r.get_std_keyword())
+                ret.add(r.get_std_keyword())
         return ret
 
 
