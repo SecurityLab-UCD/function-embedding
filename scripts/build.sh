@@ -30,7 +30,7 @@ for I in $PROBLEMS; do
         if [ ! -f $OUTDIR/$P ]; then
             # TODO: check if file contains `gets()` then use --std=c++11
             # error indexing is down in branch hyf-dev
-            run_with_lock $AFL/afl-clang-fast++ -O0 $SRCDIR/$P.cpp -o $OUTDIR/$P --std=c++11
+            run_with_lock $AFL/afl-clang-fast++ -O0 $SRCDIR/$P.cpp -o $OUTDIR/$P
         fi 
     done
 done
