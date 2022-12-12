@@ -10,9 +10,10 @@ POJ = os.getenv("POJ")
 if POJ == None:
     error("POJ not set, please tell me where the code is.")
     exit(1)
-SRCDIR = path.join(POJ, "dataset", "src")
-TXTDIR = path.join(POJ, "dataset", "ProgramData")
-BINDIR = path.join(POJ, "dataset", "build", "bin")
+DATASETDIR = path.join(POJ, "dataset")
+SRCDIR = path.join(DATASETDIR, "src")
+TXTDIR = path.join(DATASETDIR, "ProgramData")
+BINDIR = path.join(DATASETDIR, "build", "bin")
 
 AFL = os.getenv("AFL")
 if AFL == None:
@@ -35,8 +36,7 @@ if EMBDING_HOME == None:
     error("EMBDING_HOME not set, please tell me where the code is.")
     exit(1)
 
-PROBLEMS = list(range(1, 105))
-PROBLEMS = [1]
+NUMSUBDIR = 1
 
 __T = TypeVar("__T")
 __R = TypeVar("__R")
