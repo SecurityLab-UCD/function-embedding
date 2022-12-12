@@ -1,19 +1,10 @@
 import logging
-from logging import error, info, warn
+from logging import error, info, warning
 import os
 from os import path
 from typing import Iterable, Callable, Set, Tuple, TypeVar, Optional, Dict
 import subprocess
 from tqdm import tqdm
-
-POJ = os.getenv("POJ")
-if POJ == None:
-    error("POJ not set, please tell me where the code is.")
-    exit(1)
-DATASETDIR = path.join(POJ, "dataset")
-SRCDIR = path.join(DATASETDIR, "src")
-TXTDIR = path.join(DATASETDIR, "ProgramData")
-BINDIR = path.join(DATASETDIR, "build", "bin")
 
 AFL = os.getenv("AFL")
 if AFL == None:
@@ -29,7 +20,7 @@ if CORES == None:
     import multiprocessing
 
     CORES = multiprocessing.cpu_count()
-    warn(f"CORES not set, default to all cores. (nproc = {CORES})")
+    warning(f"CORES not set, default to all cores. (nproc = {CORES})")
 
 EMBDING_HOME = os.getenv("EMBDING_HOME")
 if EMBDING_HOME == None:
