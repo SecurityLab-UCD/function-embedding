@@ -107,7 +107,7 @@ void print_stderr(std::string name, std::string type, const void *val_ptr) {
   } else {
     // set default type to int
     // as %d is the most common
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(int *)val_ptr);
+    assert(0);
   }
 }
 
