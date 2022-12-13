@@ -64,6 +64,13 @@ def replace_line(line: str) -> str:
         return line
 
 
+def replace_file(f: str) -> str:
+    # or replace_file : List[str] -> str
+    # call open().readlines() outside
+    lines = f.splitlines(True)
+    return reduce(lambda a, b: a + b, map(replace_line, lines))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="text replacement script",
@@ -72,6 +79,7 @@ if __name__ == "__main__":
     parser.add_argument("filename", type=str, help="path to c/cpp file to be replaced")
 
     args = parser.parse_args()
-    lines = open(args.filename, "r+").readlines()
-    out_str = reduce(lambda a, b: a + b, map(replace_line, lines))
-    print(out_str)  # add \n to end
+    f = open(args.filename, "r+").read()
+    # out_str = reduce(lambda a, b: a + b, map(replace_line, lines))
+    # print(out_str)  # add \n to end
+    print(replace_file(f))
