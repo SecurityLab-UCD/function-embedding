@@ -136,11 +136,18 @@ int scanf_alt(std::string fmt, std::string names, Args const &...args) {
 #define SCANF_ALT(fmt, args...) scanf_alt(fmt, #args, args)
 
 // macro for cin
-#define CIN(x)                                                                 \
+#define CIN_LOOP(x)                                                            \
   [&x]() {                                                                     \
     std::cin >> x;                                                             \
     if (std::cin.good()) {                                                     \
       std::cout << #x << ",," << x << "\n";                                    \
     }                                                                          \
     return std::cin.good();                                                    \
-  }()\
+  }()
+
+// macro for cin
+#define CIN(x)                                                                 \
+  {                                                                            \
+    std::cin >> x;                                                             \
+    std::cout << #x << ",," << x << "\n";                                      \
+  }

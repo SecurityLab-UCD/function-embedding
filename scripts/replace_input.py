@@ -1,4 +1,5 @@
 import argparse
+import re
 from functools import reduce
 
 
@@ -7,17 +8,14 @@ def is_bool_exp(token: str) -> bool:
     return any(map(lambda op: op in token, bool_op))
 
 
-def to_cin(var: str) -> str:
-    return "CIN({})".format(var.strip())
-
-
 def replace_cin(line: str) -> str:
     tokens = line.split("cin")
     # print leading terms
-    # for example, indentation, while(
-    # print(tokens[0], end="")
+    # for example, indentation, while(, for(
     out_str = tokens[0]
-    is_while_loop = "while" in tokens[0]
+    is_while_cond = "while" in tokens[0]
+    is_for_init = "for" in tokens[0]
+    cin_macro = "CIN_LOOP" if is_while_cond or is_for_init else "CIN"
 
     # split the rest by >>, will have a empty str at index 0
     # ">>a;".split(">>") === ['', 'a']
@@ -27,34 +25,40 @@ def replace_cin(line: str) -> str:
     for i, token in enumerate(var_tokens):
         # split out the variable names
         # split by last delimiter
-        dlim = ")" if is_while_loop else ";"
-        token = token.rsplit(dlim, 1)
+        dlim = ")" if is_while_cond else ";"
+        token = token.split(dlim, 1) if is_for_init else token.rsplit(dlim, 1)
 
         if is_bool_exp(token[0]):
             exps = token[0].split("&&", 1)
-            # print(to_cin(exps[0]) + " && ", end="")
-            # print(exps[1], end="")
-            out_str += to_cin(exps[0]) + " && "
+            out_str += "{}({})".format(cin_macro, exps[0].strip()) + " && "
             out_str += exps[1]
         else:
-            # print(to_cin(token[0]), end="")
-            out_str += to_cin(token[0])
+            out_str += "{}({})".format(cin_macro, token[0].strip())
 
         if i == len(var_tokens) - 1:
-            end = ")" + token[1] if is_while_loop else ";\n"
-            # print(end, end="")
-            out_str += end
+            # keep the original splited ending
+            org_end = token[1] if len(token) > 1 else ""
+            end = ")" if is_while_cond else ";"
+            out_str += end + org_end
         else:
-            connector = " && " if is_while_loop else "; "
-            # print(connector, end="")
+            connector = " && " if is_while_cond else "; "
             out_str += connector
+
+    if not (is_while_cond or is_for_init) and out_str.count("CIN") > 1:
+        return "{" + out_str + "}"
     return out_str
 
 
 def replace_line(line: str) -> str:
     if "scanf" in line:
+        # check if no args, like scanf("\n");
+        if line[line.find("(") + 1 : line.find(")")].split('"')[-1] == "":
+            return line
         return line.replace("scanf", "SCANF_ALT")
     elif "cin" in line:
+        idx = line.index("cin")
+        if line[idx + 3] == ".":
+            return line
         return replace_cin(line)
     else:
         return line
