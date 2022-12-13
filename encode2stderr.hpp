@@ -105,8 +105,6 @@ void print_stderr(std::string name, std::string type, const void *val_ptr) {
     fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(),
             *(double *)val_ptr);
   } else {
-    // set default type to int
-    // as %d is the most common
     assert(0);
   }
 }
@@ -140,7 +138,7 @@ int scanf_alt(std::string fmt, std::string names, Args const &...args) {
   [&x]() {                                                                     \
     std::cin >> x;                                                             \
     if (std::cin.good()) {                                                     \
-      std::cout << #x << ",," << x << "\n";                                    \
+      std::cerr << #x << ",," << x << "\n";                                    \
     }                                                                          \
     return std::cin.good();                                                    \
   }()
@@ -149,5 +147,5 @@ int scanf_alt(std::string fmt, std::string names, Args const &...args) {
 #define CIN(x)                                                                 \
   {                                                                            \
     std::cin >> x;                                                             \
-    std::cout << #x << ",," << x << "\n";                                      \
+    std::cerr << #x << ",," << x << "\n";                                      \
   }
