@@ -3,6 +3,7 @@ import os
 from multiprocessing import Pool
 from functools import reduce
 from typing import NewType, List
+from common import EMBDING_HOME, CORES
 
 
 def check_io(input_file_names: List[str], output_file_names: List[str]) -> str:
@@ -28,7 +29,6 @@ def check_queue(io_file_names: List[str], queue_file_names: List[str]) -> str:
         err_msg += "io missing:\n"
         err_msg += str(queue_file_names - io_file_names) + "\n"
     return err_msg
-    
 
 
 def check_integrity(dir_name: str) -> str:
@@ -47,7 +47,7 @@ def check_integrity(dir_name: str) -> str:
 
     except Exception as e:
         err_msg += str(e) + "\n"
-    
+
     if err_msg != "":
         err_msg = "Failed for {}\n".format(dir_name) + err_msg + "\n"
 
@@ -56,11 +56,9 @@ def check_integrity(dir_name: str) -> str:
 
 if __name__ == "__main__":
     output_dir = (
-        os.environ["OUTPUT"]
-        if os.getenv("OUTPUT")
-        else os.environ["EMBDING_HOME"] + "/output-1"
+        os.environ["OUTPUT"] if os.getenv("OUTPUT") else EMBDING_HOME + "/output"
     )
-    n_process = int(os.environ["CORES"]) if os.getenv("CORES") else 4
+    n_process = CORES
     fuzzouts = [
         output_dir + "/{}/{}/default".format(i, p)
         for i in range(1, 105)
