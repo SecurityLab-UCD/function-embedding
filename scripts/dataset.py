@@ -4,6 +4,9 @@ import os
 from tqdm import tqdm
 from typing import List, Tuple
 import subprocess
+import re
+from logging import error, info, warning
+from replace_input import replace_file
 
 
 def compile_one_file(p: Tuple[str, str]):
@@ -16,12 +19,21 @@ def compile_one_file(p: Tuple[str, str]):
     )
 
 
+def format_one_file(src: str):
+    return subprocess.Popen(
+        [f"{LLVM}/bin/clang-format", src],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
 class DataSet:
-    def __init__(self, workdir, txtdir):
+    def __init__(self, workdir, txtdir, language):
         self.workdir = path.abspath(workdir)
         self.txtdir = path.join(self.workdir, txtdir)
         self.srcdir = path.join(self.workdir, "src")
         self.bindir = path.join(self.workdir, "build")
+        self.lang = language
 
     def download(self):
         pass
@@ -59,10 +71,29 @@ class DataSet:
         info("Compiling all the code")
         parallel_subprocess(files_to_compile, jobs, compile_one_file, on_exit)
 
+    def remove_comments(self, text: str) -> str:
+        # https://stackoverflow.com/questions/241327/remove-c-and-c-comments-using-python
+        def replacer(match):
+            s = match.group(0)
+            if s.startswith("/"):
+                return " "  # note: a space and not an empty string
+            else:
+                return s
+
+        if self.lang == "C/C++":
+            pattern = re.compile(
+                r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
+                re.DOTALL | re.MULTILINE,
+            )
+        else:
+            error("language not supported for removing comments")
+
+        return re.sub(pattern, replacer, text)
+
 
 class POJ104(DataSet):
     def __init__(self, workdir):
-        DataSet.__init__(self, workdir, "ProgramData")
+        DataSet.__init__(self, workdir, "ProgramData", "C/C++")
 
     def download(self):
         # TODO: Download it to some hidden place, and link data to self.txtdir
@@ -82,20 +113,30 @@ class POJ104(DataSet):
                 txt_path = path.join(self.txtdir, str(i), str(p) + ".txt")
                 src_path = path.join(self.srcdir, str(i), str(p) + ".cpp")
                 if not path.isfile(src_path):
-                    POJ104.preprocess_one(txt_path, src_path)
+                    self.preprocess_one(txt_path, src_path)
 
-    def preprocess_one(txt_path, src_path):
-        with open(src_path, "wb") as f:
+    def preprocess_one(self, txt_path, src_path):
+        with open(src_path, "w") as f:
             # cat $EMBDING_HOME/header.hpp >> $SRCDIR/$P.cpp
-            with open(path.join(EMBDING_HOME, "header.hpp"), "rb") as hpp:
+            with open(path.join(EMBDING_HOME, "header.hpp"), "r") as hpp:
                 header = hpp.read()
                 f.write(header)
-            with open(txt_path, "rb") as txt:
-                code = txt.read()
+            # cat $EMBDING_HOME/encode2stderr.hpp >> $SRCDIR/$P.cpp
+            with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
+                header = hpp.read()
+                f.write(header)
+            # $LLVMPATH/bin/clang-format $TXTDIR/$P.txt > $SRCDIR/$P.temp.cpp
+            # python3.8 $EMBDING_HOME/scripts/replace_input.py $SRCDIR/$P.temp.cpp >> $SRCDIR/$P.cpp
+            with open(txt_path, "r", errors="replace") as txt:
+                try:
+                    code = self.remove_comments(txt.read())
+                    code = replace_file(code)
+                except IndexError:
+                    code = format_one_file(txt_path).stdout.read().decode()
+                    code = replace_file(self.remove_comments(code))
+                except Exception as e:
+                    warning(e)
                 f.write(code)
-
-            # TODO: cat $EMBDING_HOME/encode2stderr.hpp >> $SRCDIR/$P.cpp
-            # TODO: python3.8 $EMBDING_HOME/scripts/replace_input.py $TXTDIR/$P.txt >> $SRCDIR/$P.cpp
 
 
 class IBM(DataSet):

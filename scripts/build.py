@@ -6,12 +6,12 @@ import subprocess
 from logging import error, info, warning
 import argparse
 from dataset import *
+from functools import partial
 
 
-def dump_stderr_on_exit(p: subprocess.Popen):
-    # TODO: Change fixed ./O output file.
-    with open("O", "a") as f:
-        f.write(p.stderr.read().decode())
+def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
+    with open(errfile, "ab") as f:
+        f.write(p.stderr.read())
 
 
 def main():
@@ -33,6 +33,9 @@ def main():
     parser.add_argument(
         "-j", "--jobs", type=int, help="Number of threads to use.", default=CORES
     )
+    parser.add_argument(
+        "-f", "--errfile", type=str, help="The file name to dump stderr", default="O"
+    )
 
     args = parser.parse_args()
     workdir = args.workdir if args.workdir != "" else args.dataset
@@ -48,7 +51,9 @@ def main():
     elif args.dataset == "IBM1000":
         dataset = IBM(workdir)
     dataset.preprocess_all()
-    dataset.compile_all(jobs=args.jobs, on_exit=dump_stderr_on_exit)
+    dataset.compile_all(
+        jobs=args.jobs, on_exit=partial(dump_stderr_on_exit, args.errfile)
+    )
 
 
 if __name__ == "__main__":
