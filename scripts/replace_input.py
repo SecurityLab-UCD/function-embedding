@@ -1,6 +1,7 @@
 import argparse
 import re
 from functools import reduce
+from typing import List
 
 
 def is_bool_exp(token: str) -> bool:
@@ -30,6 +31,8 @@ def replace_cin(line: str) -> str:
 
         if is_bool_exp(token[0]):
             exps = token[0].split("&&", 1)
+            if len(exps) == 1 and "," in exps[0]:
+                exps = token[0].split(",")
             out_str += "{}({})".format(cin_macro, exps[0].strip()) + " && "
             out_str += exps[1]
         else:
