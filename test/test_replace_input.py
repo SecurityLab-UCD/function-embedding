@@ -41,3 +41,11 @@ assert (
 )
 
 assert replace_line("temp = cin.get();") == "temp = cin.get();"
+
+assert (
+    replace_line("while (cin >> temp, temp != -1)")
+    == "while (CIN_LOOP(temp) &&  temp != -1)"
+)
+assert (
+    replace_line("while(cin>>n>>m,n||m)") == "while(CIN_LOOP(n) && CIN_LOOP(m) && n||m)"
+)
