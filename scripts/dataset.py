@@ -1,4 +1,5 @@
 from common import *
+from whitelist import *
 from os import path
 import os
 from tqdm import tqdm
@@ -94,6 +95,9 @@ class DataSet:
 class POJ104(DataSet):
     def __init__(self, workdir):
         DataSet.__init__(self, workdir, "ProgramData", "C/C++")
+        self.format_list: List[str] = [
+            f"{self.txtdir}/{file_id}.txt" for file_id in POJ104_FORMAT_LIST
+        ]
 
     def download(self):
         # TODO: Download it to some hidden place, and link data to self.txtdir
@@ -127,16 +131,13 @@ class POJ104(DataSet):
                 f.write(header)
             # $LLVMPATH/bin/clang-format $TXTDIR/$P.txt > $SRCDIR/$P.temp.cpp
             # python3.8 $EMBDING_HOME/scripts/replace_input.py $SRCDIR/$P.temp.cpp >> $SRCDIR/$P.cpp
-            with open(txt_path, "r", errors="replace") as txt:
-                try:
-                    code = self.remove_comments(txt.read())
-                    code = replace_file(code)
-                except IndexError:
-                    code = format_one_file(txt_path).stdout.read().decode()
-                    code = replace_file(self.remove_comments(code))
-                except Exception as e:
-                    warning(e)
-                f.write(code)
+            if txt_path in self.format_list:
+                code = format_one_file(txt_path).stdout.read().decode()
+            else:
+                with open(txt_path, "r", errors="replace") as txt:
+                    code = txt.read()
+            code = replace_file(self.remove_comments(code))
+            f.write(code)
 
 
 class IBM(DataSet):
