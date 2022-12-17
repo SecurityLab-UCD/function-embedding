@@ -11,7 +11,12 @@ from functools import partial
 
 def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
     with open(errfile, "ab") as f:
-        f.write(p.stderr.read())
+        try:
+            _, stderr = p.communicate(timeout=15)
+        except TimeoutExpired:
+            p.kill()
+            _, stderr = p.communicate()
+        f.write(stderr)
 
 
 def main():
