@@ -49,3 +49,5 @@ assert (
 assert (
     replace_line("while(cin>>n>>m,n||m)") == "while(CIN_LOOP(n) && CIN_LOOP(m) && n||m)"
 )
+
+assert replace_line("for(i=0;i<n;++i)cin>>a[i];") == "for(i=0;i<n;++i)CIN(a[i]);"
