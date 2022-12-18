@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <iostream>
 #include <set>
@@ -149,3 +150,14 @@ int scanf_alt(std::string fmt, std::string names, Args const &...args) {
     std::cin >> x;                                                             \
     std::cerr << #x << ",," << x << "\n";                                      \
   }
+
+// https://stackoverflow.com/questions/1694036/why-is-the-gets-function-so-dangerous-that-it-should-not-be-used
+char *gets_alt(char *buffer, size_t buflen, FILE *fp, std::string name) {
+  if (fgets(buffer, buflen, fp) != 0) {
+    buffer[strcspn(buffer, "\n")] = '\0';
+    fprintf(stderr, "%s,s,%s\n", name.c_str(), buffer);
+    return buffer;
+  }
+  return 0;
+}
+#define GETS_ALT(str) gets_alt(str, sizeof(str), stdin, #str)

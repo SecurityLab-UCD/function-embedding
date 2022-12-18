@@ -51,3 +51,5 @@ assert (
 )
 
 assert replace_line("for(i=0;i<n;++i)cin>>a[i];") == "for(i=0;i<n;++i)CIN(a[i]);"
+
+assert replace_line("gets(word[i]);") == "GETS_ALT(word[i]);"
