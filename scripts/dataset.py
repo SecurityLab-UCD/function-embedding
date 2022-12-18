@@ -13,8 +13,15 @@ from replace_input import replace_file
 def compile_one_file(p: Tuple[str, str]):
     src, dst = p
     # TODO: if src in blacklist, use another copmile strategy.
+    cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst]
+
+    # TODO: this method to get file id only works for POJ104
+    f_id = src.rsplit("src/")[1].split(".cpp")[0]
+    if f_id in POJ104_NO_MATH_H_LIST:
+        cmd.append("-D_NO_MATH_H_")
+
     return subprocess.Popen(
-        [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst],
+        cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
