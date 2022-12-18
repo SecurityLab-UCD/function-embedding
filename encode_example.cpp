@@ -52,9 +52,13 @@ int main(int argc, char **argv) {
 
   int cin_loop_buff;
   cout << loop_msg;
-  while (CIN(cin_loop_buff)) {
+  while (CIN_LOOP(cin_loop_buff)) {
     cout << loop_msg;
   }
+
+  printf("GETS_ALT: enter a string\n");
+  char string[256];
+  GETS_ALT(string); // warning: unsafe (see fgets instead)
 
   return 0;
 }
