@@ -15,7 +15,8 @@ def replace_cin(line: str) -> str:
     # for example, indentation, while(, for(
     out_str = tokens[0]
     is_while_cond = "while" in tokens[0]
-    is_for_init = "for" in tokens[0]
+    is_for_init = "for" in tokens[0] and tokens[0].count("(") != tokens[0].count(")")
+    # is_for_init = "for" in tokens[0]
     cin_macro = "CIN_LOOP" if is_while_cond or is_for_init else "CIN"
 
     # split the rest by >>, will have a empty str at index 0
