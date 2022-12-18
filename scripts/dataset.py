@@ -137,6 +137,8 @@ class POJ104(DataSet):
                 with open(txt_path, "r", errors="replace") as txt:
                     code = txt.read()
             code = replace_file(self.remove_comments(code))
+            # sed -i 's/void main/int main/g' $SRCDIR/$P.cpp
+            code = code.replace("void main", "int main")
             f.write(code)
 
 
