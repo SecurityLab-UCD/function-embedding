@@ -15,7 +15,7 @@ from compile_report import init_crash_report_from_stderr
 from tqdm import tqdm
 from replace_input import replace_file
 
-CPP_TYPE_SET = {"int", "float", "double", "char", "wchar", "bool", "void"}
+CPP_TYPE_SET = {"int", "float", "double", "char", "wchar", "bool", "void", "long"}
 
 
 def tokenize(paths: Tuple[str, str]):
@@ -106,7 +106,13 @@ def _fix_main_returned_non_int(paths: Tuple[str, str], r: Report, cr: CompilerRe
     prev_val, prev_type = tokens[main_idx - 1]
     int_token = ("int", TokenType.KEYWORD)
     if prev_type == TokenType.KEYWORD and prev_val in CPP_TYPE_SET:
+        # main type non int
         tokens[main_idx - 1] = int_token
+    elif prev_val not in CPP_TYPE_SET:
+        # main no type
+        tokens = tokens[:main_idx] + [int_token] + tokens[main_idx:]
+    else:
+        error(f"undefined main return error: {cpp_path}")
     assemble_tokens_and_write(tokens, cpp_path)
 
 
@@ -173,6 +179,29 @@ struct_len_undefined = FixStrategy(
 )
 
 
+def _fix_type_cannot_be_returned(paths: Tuple[str, str], r: Report, cr: CompilerReport):
+    txt_path, cpp_path = paths
+    tokens = tokenize(paths)
+    struct_name = r.get_struct_name()
+    defn_idx = tokens.index((struct_name, TokenType.IDENTIFIER))
+    # insert token after end }
+    struct_end_idx = tokens[defn_idx:].index(("}", TokenType.SPECIAL_SYMBOL)) + 2
+    tokens = (
+        tokens[:struct_end_idx]
+        + [(";", TokenType.SPECIAL_SYMBOL)]
+        + tokens[struct_end_idx:]
+    )
+
+    assemble_tokens_and_write(tokens, cpp_path)
+
+
+struct_missing_semicolon = FixStrategy(
+    "Define a struct with no semicolon at the end",
+    lambda r, _: r.define_struct_no_semicolon(),
+    _fix_type_cannot_be_returned,
+)
+
+
 # Special cases
 # TODO: No special case yet.
 SPECIAL_CASE_LIST: List[Tuple[int, int]] = []
@@ -197,6 +226,7 @@ FIX_STRATEGIES = [
     main_has_no_return_type,
     use_of_std_keyword,
     struct_len_undefined,
+    struct_missing_semicolon,
     special_cases,
 ]
 

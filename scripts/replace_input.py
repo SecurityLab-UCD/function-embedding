@@ -57,6 +57,10 @@ def replace_line(line: str) -> str:
     # replace `gets` which is deprecated
     if "gets" in line:
         line = line.replace("gets", "GETS_ALT")
+    if "null" in line:
+        line = line.replace("null", "nullptr")
+    if "Null" in line:
+        line = line.replace("Null", "nullptr")
     if "scanf" in line:
         # check if no args, like scanf("\n");
         if line[line.find("(") + 1 : line.find(")")].split('"')[-1] == "":
