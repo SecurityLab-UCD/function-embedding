@@ -139,7 +139,7 @@ class POJ104(DataSet):
             # $LLVMPATH/bin/clang-format $TXTDIR/$P.txt > $SRCDIR/$P.temp.cpp
             # python3.8 $EMBDING_HOME/scripts/replace_input.py $SRCDIR/$P.temp.cpp >> $SRCDIR/$P.cpp
             if txt_path in self.format_list:
-                code = format_one_file(txt_path).stdout.read().decode()
+                code = format_one_file(txt_path).stdout.read().decode(errors="replace")
             else:
                 with open(txt_path, "r", errors="replace") as txt:
                     code = txt.read()
