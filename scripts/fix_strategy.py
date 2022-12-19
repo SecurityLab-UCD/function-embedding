@@ -1,46 +1,81 @@
 from common import *
-from typing import Callable
+from typing import Callable, Tuple
 from compile_report import *
+from dataset import *
+from build import dump_stderr_on_exit
+from tqdm import tqdm
+from functools import partial
+import sys
+
+sys.path.append("./lib/sctokenizer")
 import sctokenizer
 from sctokenizer import Source, TokenType, Token
 from functools import reduce
 from compile_report import init_crash_report_from_stderr
 from tqdm import tqdm
+from replace_input import replace_file
 
 CPP_TYPE_SET = {"int", "float", "double", "char", "wchar", "bool", "void"}
 
 
-def tokenize(fpath: str):
+def tokenize(paths: Tuple[str, str]):
     def token2tuple(token):
         # discard position
         return (token.token_value, token.token_type)
 
+    # ! reading from txt file or temp fixed file without includes and defines
+    # assembling includes and defines tokens is too complex
+    txt_path, cpp_path = paths
+    fpath = cpp_path + "~" if os.path.exists(cpp_path + "~") else txt_path
     tokens = sctokenizer.tokenize_file(filepath=fpath, lang="cpp")
     tokens = list(map(token2tuple, tokens))
     return tokens
 
 
+def get_value(token: Tuple[str, TokenType]):
+    token_val, token_type = token
+    if token_type == TokenType.KEYWORD:
+        return token_val + " "
+    if token_type == TokenType.COMMENT_SYMBOL:
+        return token_val + "\n"
+    return token_val
+
+
 # TODO: Should use an IOWrapper to write to file or string.
-def assemble_tokens_and_write(tokens, cpp_path: str):
+def assemble_tokens_and_write(tokens: List[Tuple[str, TokenType]], cpp_path: str):
+    """write tokens to a temp-cpp file
+
+    Args:
+        tokens (List[Tuple[str, TokenType]]): list of tokens of the file
+        cpp_path (str): path to the final cpp file to compile
+    """
+
+    with open(cpp_path + "~", "w") as f:
+        f.write(reduce(lambda s, t: s + get_value(t), tokens, ""))
+
+
+def preprocess_file(cpp_path: str):
+    """preprocess a fixed temp-cpp file with headers
+
+    Args:
+        cpp_path (str): path to write the cpp file
+    """
+    if not os.path.exists(cpp_path + "~"):
+        return
+
+    code = format_one_file(cpp_path + "~").stdout.read().decode()
+    code = replace_file(code)
+    code = code.replace("void main", "int main")
     with open(cpp_path, "w") as f:
-        for i in range(len(tokens)):
-            token_val, token_type = tokens[i]
-            f.write(token_val)
-            if token_type == TokenType.KEYWORD:
-                f.write(" ")
-            if token_type == TokenType.COMMENT_SYMBOL:
-                f.write("\n")
-            if (
-                token_type == TokenType.OPERATOR
-                and token_val == ">"
-                and tokens[i - 2][1] == TokenType.OPERATOR
-                and tokens[i - 2][0] == "<"
-                and tokens[i - 3][1] == TokenType.KEYWORD
-                and tokens[i - 3][0] == "include"
-            ):
-                f.write("\n")
-            if token_val == "{" or token_val == "}" or token_val == ";":
-                f.write("\n")
+        with open(path.join(EMBDING_HOME, "header.hpp"), "r") as hpp:
+            header = hpp.read()
+            f.write(header)
+        # cat $EMBDING_HOME/encode2stderr.hpp >> $SRCDIR/$P.cpp
+        with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
+            header = hpp.read()
+            f.write(header)
+        f.write(code)
+    os.remove(cpp_path + "~")
 
 
 class FixStrategy:
@@ -64,8 +99,9 @@ class FixStrategy:
 
 
 # Main does not return int
-def _fix_main_returned_non_int(cpp_path: str, r: Report, cr: CompilerReport):
-    tokens = tokenize(cpp_path)
+def _fix_main_returned_non_int(paths: Tuple[str, str], r: Report, cr: CompilerReport):
+    txt_path, cpp_path = paths
+    tokens = tokenize(paths)
     main_idx = tokens.index(("main", TokenType.IDENTIFIER))
     prev_val, prev_type = tokens[main_idx - 1]
     int_token = ("int", TokenType.KEYWORD)
@@ -82,8 +118,9 @@ fix_main_returned_non_int = FixStrategy(
 
 
 # Main has no return type
-def _fix_main_has_no_return_type(cpp_path: str, r: Report, cr: CompilerReport):
-    tokens = tokenize(cpp_path)
+def _fix_main_has_no_return_type(paths: Tuple[str, str], r: Report, cr: CompilerReport):
+    txt_path, cpp_path = paths
+    tokens = tokenize(paths)
     main_idx = tokens.index(("main", TokenType.IDENTIFIER))
     int_token = ("int", TokenType.KEYWORD)
     tokens = tokens[:main_idx] + [int_token] + tokens[main_idx:]
@@ -97,8 +134,9 @@ main_has_no_return_type = FixStrategy(
 )
 
 
-def _fix_use_of_std_keyword(cpp_path: str, r: Report, cr: CompilerReport):
-    tokens = tokenize(cpp_path)
+def _fix_use_of_std_keyword(paths: Tuple[str, str], r: Report, cr: CompilerReport):
+    txt_path, cpp_path = paths
+    tokens = tokenize(paths)
     keywords = cr.get_keywords_used()
     for i in range(len(tokens)):
         token_val, token_type = tokens[i]
@@ -113,6 +151,27 @@ use_of_std_keyword = FixStrategy(
     lambda r, _: r.use_of_std_keyword(),
     _fix_use_of_std_keyword,
 )
+
+
+def _fix_struct_len_undefined(paths: Tuple[str, str], r: Report, cr: CompilerReport):
+    txt_path, cpp_path = paths
+    tokens = tokenize(paths)
+    var_pairs = list(cr.get_struct_len_definition())
+    _, len_vars = tuple(zip(*var_pairs))
+    for i in range(len(tokens)):
+        token_val, token_type = tokens[i]
+        if token_val in len_vars:
+            struct_size_var, len_var = var_pairs[len_vars.index(token_val)]
+            tokens[i] = (f"sizeof({struct_size_var})", token_type)
+    assemble_tokens_and_write(tokens, cpp_path)
+
+
+struct_len_undefined = FixStrategy(
+    "Used LEN as stuct size but undefined",
+    lambda r, _: r.struct_len_undefined(),
+    _fix_struct_len_undefined,
+)
+
 
 # Special cases
 # TODO: No special case yet.
@@ -137,15 +196,51 @@ FIX_STRATEGIES = [
     fix_main_returned_non_int,
     main_has_no_return_type,
     use_of_std_keyword,
+    struct_len_undefined,
     special_cases,
 ]
 
 
 def main():
-    with open("./O", "r") as f:
+    parser = argparse.ArgumentParser(description="Fix a dataset to compile")
+    parser.add_argument(
+        "-d",
+        "--dataset",
+        type=str,
+        choices=["POJ104", "IBM1400", "IBM1000"],
+        required=True,
+        help="The dataset to copmile",
+    )
+    parser.add_argument(
+        "-w", "--workdir", type=str, default="", help="The workdir to use."
+    )
+    parser.add_argument(
+        "-j", "--jobs", type=int, help="Number of threads to use.", default=CORES
+    )
+    parser.add_argument(
+        "-f", "--errfile", type=str, help="The file name to dump stderr", default="O"
+    )
+
+    args = parser.parse_args()
+    workdir = args.workdir if args.workdir != "" else args.dataset
+
+    if path.exists(workdir):
+        warning(f"{workdir} exists")
+
+    dataset = None
+    if args.dataset == "POJ104":
+        dataset = POJ104(workdir)
+    elif args.dataset == "IBM1400":
+        dataset = IBM(workdir)
+    elif args.dataset == "IBM1000":
+        dataset = IBM(workdir)
+
+    set_global_DIR(dataset.txtdir, dataset.srcdir)
+    with open(args.errfile, "r") as f:
         lines = []
+        lines_in_file = f.readlines()
         info("Converting stderr into CompilerReport")
-        for line in f:
+        for line in tqdm(lines_in_file):
             lines.append(line[:-1])
             if "generated." in line:
                 cr = CompilerReport(lines)
@@ -154,6 +249,12 @@ def main():
                         if strategy.isMatch(r, cr):
                             strategy.fix(cr.get_path(), r, cr)
                 lines = []
+                preprocess_file(cr.get_path()[1])
+
+    dataset.compile_all(
+        jobs=args.jobs, on_exit=partial(dump_stderr_on_exit, args.errfile + "-fixed")
+    )
+    print(f"Compiled:{sum([len(files) for _, _, files in os.walk(dataset.bindir)])}")
 
 
 if __name__ == "__main__":

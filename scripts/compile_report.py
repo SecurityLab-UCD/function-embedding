@@ -1,8 +1,8 @@
 import argparse
 import os
 from typing import List
-from build import compile_all
 import subprocess
+import re
 from common import *
 
 PROBLEMS = [1]
@@ -24,8 +24,12 @@ class Report:
         )
 
     def struct_len_undefined(self):
-        return "use of undeclared identifier" in self.lines[0] and True
-        # TODO: regex match "(struct A \*)malloc(B);"
+        use_malloc = len(self.lines) > 1 and bool(re.findall(".*\((.*)\)malloc\((.*)\)", self.lines[1]))
+        return "use of undeclared identifier" in self.lines[0] and use_malloc
+    
+    def get_struct_len_definition(self):
+        assert self.struct_len_undefined()
+        return re.findall(".*\((.*)\)malloc\((.*)\)", self.lines[1])[0]
 
     def use_of_std_keyword(self):
         # rank string count function array
@@ -40,6 +44,20 @@ class Report:
     def get_std_keyword(self):
         assert self.use_of_std_keyword()
         return self.lines[0].split("'")[1]
+    
+    def has_redefinition_of_symbol(self):
+        if (
+            "redefinition of '" in self.lines[0]
+            and "' as different kind of symbol" in self.lines[0]
+        ):
+            symbol = self.lines[0].split("'")[1]
+            return any(map(lambda line: symbol in line, self.lines))
+        return False
+    
+    def get_redefined_symbol(self):
+        assert self.has_redefinition_of_symbol()
+        return self.lines[0].split("'")[1]
+
 
 
 class CompilerReport:
@@ -90,14 +108,25 @@ class CompilerReport:
                 print(lines[begin], begin, len(lines), lines)
                 unreachable("Shouldn't be here")
 
-    def get_path(self) -> str:
-        return os.path.join(SRCDIR, str(self.p), str(self.i) + ".cpp")
+    def get_path(self) -> Tuple[str, str]:
+        txt_path = os.path.join(TXTDIR, str(self.p), str(self.i) + ".txt")
+        cpp_path = os.path.join(SRCDIR, str(self.p), str(self.i) + ".cpp")
+        return (txt_path, cpp_path)
 
     def get_keywords_used(self) -> Set[str]:
         ret = set()
         for r in self.error_list:
             if r.use_of_std_keyword():
                 ret.add(r.get_std_keyword())
+            if r.has_redefinition_of_symbol():
+                ret.add(r.get_redefined_symbol())
+        return ret
+    
+    def get_struct_len_definition(self) -> Set[str]:
+        ret = set()
+        for r in self.error_list:
+            if r.struct_len_undefined():
+                ret.add(r.get_struct_len_definition())
         return ret
 
 
@@ -123,12 +152,20 @@ def init_crash_report_from_stderr(p: str):
 
 
 def classify():
-    init_crash_report_from_stderr("./O")
+    reports = init_crash_report_from_stderr("./O")
     # compile_all(on_exit=init_crash_report)
+    return reports
+
+
+def set_global_DIR(txtdir: str, srcdir: str):
+    global SRCDIR
+    global TXTDIR
+    SRCDIR = srcdir
+    TXTDIR = txtdir
 
 
 def main():
-    classify()
+    reports = classify()
     print(len(reports))
 
 
