@@ -36,6 +36,8 @@ def get_value(token: Tuple[str, TokenType]):
     token_val, token_type = token
     if token_type == TokenType.KEYWORD:
         return token_val + " "
+    if token_type == TokenType.IDENTIFIER:
+        return " " + token_val
     if token_type == TokenType.COMMENT_SYMBOL:
         return token_val + "\n"
     return token_val
@@ -147,7 +149,7 @@ def _fix_use_of_std_keyword(paths: Tuple[str, str], r: Report, cr: CompilerRepor
     for i in range(len(tokens)):
         token_val, token_type = tokens[i]
         if token_val in keywords:
-            tokens[i] = ("_" + token_val, token_type)
+            tokens[i] = ("fixed_" + token_val, token_type)
     assemble_tokens_and_write(tokens, cpp_path)
 
 
@@ -184,8 +186,10 @@ def _fix_type_cannot_be_returned(paths: Tuple[str, str], r: Report, cr: Compiler
     tokens = tokenize(paths)
     struct_name = r.get_struct_name()
     defn_idx = tokens.index((struct_name, TokenType.IDENTIFIER))
-    # insert token after end }
-    struct_end_idx = tokens[defn_idx:].index(("}", TokenType.SPECIAL_SYMBOL)) + 2
+    # insert token after first } after struct definition
+    struct_end_idx = (
+        tokens[defn_idx:].index(("}", TokenType.SPECIAL_SYMBOL)) + defn_idx + 1
+    )
     tokens = (
         tokens[:struct_end_idx]
         + [(";", TokenType.SPECIAL_SYMBOL)]
@@ -201,6 +205,34 @@ struct_missing_semicolon = FixStrategy(
     _fix_type_cannot_be_returned,
 )
 
+
+def _fix_main_invalid_arg(paths: Tuple[str, str], r: Report, cr: CompilerReport):
+    txt_path, cpp_path = paths
+    tokens = tokenize(paths)
+
+    main_arg_tokens = [
+        ("int", TokenType.KEYWORD),
+        ("argc", TokenType.IDENTIFIER),
+        (",", TokenType.OPERATOR),
+        ("char", TokenType.KEYWORD),
+        ("*", TokenType.OPERATOR),
+        ("*", TokenType.OPERATOR),
+        ("argv", TokenType.IDENTIFIER),
+    ]
+    main_idx = tokens.index(("main", TokenType.IDENTIFIER))
+    start_idx = main_idx + 2
+    end_idx = (
+        tokens[main_idx:].index((")", TokenType.SPECIAL_SYMBOL)) + main_idx
+    )  # insert arg tokens B4 first ) after main
+    tokens = tokens[:start_idx] + main_arg_tokens + tokens[end_idx:]
+    assemble_tokens_and_write(tokens, cpp_path)
+
+
+invalid_main_arg = FixStrategy(
+    "main arguments not (int argc, char **argv)",
+    lambda r, _: r.main_has_invalid_arg(),
+    _fix_main_invalid_arg,
+)
 
 # Special cases
 # TODO: No special case yet.
@@ -227,6 +259,7 @@ FIX_STRATEGIES = [
     use_of_std_keyword,
     struct_len_undefined,
     struct_missing_semicolon,
+    invalid_main_arg,
     special_cases,
 ]
 

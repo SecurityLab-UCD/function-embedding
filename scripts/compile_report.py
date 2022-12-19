@@ -24,6 +24,7 @@ class Report:
         )
 
     def struct_len_undefined(self):
+        # TODO: (struct m*)calloc(n,L);
         use_malloc = len(self.lines) > 1 and bool(
             re.findall(".*\((.*)\) ?malloc\((.*)\)", self.lines[1])
         )
@@ -72,6 +73,12 @@ class Report:
     def get_struct_name(self):
         assert self.define_struct_no_semicolon()
         return self.lines[0].split("'")[1]
+
+    def main_has_invalid_arg(self):
+        return (
+            "parameter of 'main'" in self.lines[0]
+            and "must be of type" in self.lines[0]
+        )
 
 
 class CompilerReport:
