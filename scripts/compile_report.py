@@ -24,12 +24,14 @@ class Report:
         )
 
     def struct_len_undefined(self):
-        use_malloc = len(self.lines) > 1 and bool(re.findall(".*\((.*)\)malloc\((.*)\)", self.lines[1]))
+        use_malloc = len(self.lines) > 1 and bool(
+            re.findall(".*\((.*)\) ?malloc\((.*)\)", self.lines[1])
+        )
         return "use of undeclared identifier" in self.lines[0] and use_malloc
-    
+
     def get_struct_len_definition(self):
         assert self.struct_len_undefined()
-        return re.findall(".*\((.*)\)malloc\((.*)\)", self.lines[1])[0]
+        return re.findall(".*\((.*)\) ?malloc\((.*)\)", self.lines[1])[0]
 
     def use_of_std_keyword(self):
         # rank string count function array
@@ -44,7 +46,7 @@ class Report:
     def get_std_keyword(self):
         assert self.use_of_std_keyword()
         return self.lines[0].split("'")[1]
-    
+
     def has_redefinition_of_symbol(self):
         if (
             "redefinition of '" in self.lines[0]
@@ -53,11 +55,23 @@ class Report:
             symbol = self.lines[0].split("'")[1]
             return any(map(lambda line: symbol in line, self.lines))
         return False
-    
+
     def get_redefined_symbol(self):
         assert self.has_redefinition_of_symbol()
         return self.lines[0].split("'")[1]
 
+    def define_struct_no_semicolon(self):
+        # error: 'library' cannot be defined in the result type of a function
+        # struct library
+        return (
+            "cannot be defined in the result type of a function" in self.lines[0]
+            and len(self.lines) > 1
+            and "struct" in self.lines[1]
+        )
+
+    def get_struct_name(self):
+        assert self.define_struct_no_semicolon()
+        return self.lines[0].split("'")[1]
 
 
 class CompilerReport:
@@ -121,7 +135,7 @@ class CompilerReport:
             if r.has_redefinition_of_symbol():
                 ret.add(r.get_redefined_symbol())
         return ret
-    
+
     def get_struct_len_definition(self) -> Set[str]:
         ret = set()
         for r in self.error_list:
