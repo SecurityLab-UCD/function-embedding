@@ -30,15 +30,28 @@ class Report:
         )
 
     def struct_len_undefined(self):
-        # TODO: (struct m*)calloc(n,L);
-        use_malloc = len(self.lines) > 1 and bool(
-            re.findall(".*\((.*)\) ?malloc\((.*)\)", self.lines[1])
+        match_rules = [
+            ".*\((.*)\) ?malloc\((.*)\)",
+            ".*\((.*)\) ?calloc\((.*)\)",
+        ]
+        return (
+            "use of undeclared identifier" in self.lines[0]
+            and len(self.lines) > 1
+            and any([re.findall(r, self.lines[1]) for r in match_rules])
         )
-        return "use of undeclared identifier" in self.lines[0] and use_malloc
 
-    def get_struct_len_definition(self):
+    def get_struct_len_definition(self) -> Tuple[str, str, str]:
         assert self.struct_len_undefined()
-        return re.findall(".*\((.*)\) ?malloc\((.*)\)", self.lines[1])[0]
+        match_rules = [
+            ".*\((.*)\) ?malloc\(.*\)",
+            ".*\((.*)\) ?calloc\(.*\)",
+        ]
+        if "malloc" in self.lines[1]:
+            ptr_name = re.findall(match_rules[0], self.lines[1])[0]
+        else:
+            ptr_name = re.findall(match_rules[1], self.lines[1])[0]
+        id_name = self.lines[0].split("'")[1]
+        return (ptr_name, id_name)
 
     def use_of_std_keyword(self):
         # rank string count function array
@@ -173,7 +186,7 @@ class CompilerReport:
                 ret.add(r.get_redefined_symbol())
         return ret
 
-    def get_struct_len_definition(self) -> Set[str]:
+    def get_struct_len_definition(self) -> Set[Tuple[str, str]]:
         ret = set()
         for r in self.error_list:
             if r.struct_len_undefined():
