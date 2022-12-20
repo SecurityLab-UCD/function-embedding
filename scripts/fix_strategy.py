@@ -244,11 +244,23 @@ invalid_main_arg = FixStrategy(
 
 def _fix_main_didnt_return_value(paths: Tuple[str, str], r: Report, cr: CompilerReport):
     txt_path, cpp_path = paths
-    with open(cpp_path, "r") as f:
+    fpath = cpp_path + "~" if os.path.exists(cpp_path + "~") else txt_path
+    with open(fpath, "r") as f:
         lines = f.readlines()
+
+    # current f has no headers
+    with open(path.join(EMBDING_HOME, "header.hpp")) as f1, open(
+        path.join(EMBDING_HOME, "encode2stderr.hpp")
+    ) as f2:
+        offset = len(f1.readlines()) + len(f2.readlines())
+        if path.exists(path.join(EMBDING_HOME, "const_macro.hpp")):
+            with open(path.join(EMBDING_HOME, "const_macro.hpp")) as f3:
+                offset += len(f3.readlines())
+
     (ret_ln, _) = r.get_loc()
+    ret_ln -= offset
     lines[ret_ln - 1] = lines[ret_ln - 1].replace("return", "return 0")
-    with open(cpp_path, "w") as f:
+    with open(cpp_path + "~", "w") as f:
         f.writelines(lines)
 
 
@@ -306,8 +318,10 @@ FIX_STRATEGIES = [
     struct_len_undefined,
     struct_missing_semicolon,
     invalid_main_arg,
-    main_return_value,
+    # `undeclared_identifier_macro` may change the line numebr used in `main_return_value`
+    # so these two need to be in order
     undeclared_identifier_macro,
+    main_return_value,
     special_cases,
 ]
 
