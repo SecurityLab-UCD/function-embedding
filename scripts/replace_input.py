@@ -61,7 +61,10 @@ def replace_line(line: str) -> str:
         line = line.replace("null", "nullptr")
     if "Null" in line:
         line = line.replace("Null", "nullptr")
-    if "scanf" in line:
+    if "scanf" in line and "sscanf" not in line:
+        # NOTE if there is any case that scanf and sscanf in same line,
+        # add that file to format list
+        
         # check if no args, like scanf("\n");
         if line[line.find("(") + 1 : line.find(")")].split('"')[-1] == "":
             return line
