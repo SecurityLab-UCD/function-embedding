@@ -14,6 +14,12 @@ class Report:
     def __init__(self, lines):
         self.lines = tuple(lines)
 
+    def __str__(self):
+        return "\n".join(self.lines)
+
+    def get_loc(self):
+        return tuple(map(int, self.lines[0].split(":")[1:3]))
+
     def main_returned_non_int(self):
         return "'main' must return 'int'" in self.lines[0]
 
@@ -80,6 +86,9 @@ class Report:
             and "must be of type" in self.lines[0]
         )
 
+    def main_didnt_return_value(self):
+        return "non-void function 'main' should return a value" in self.lines[0]
+
 
 class CompilerReport:
     p: int
@@ -118,6 +127,7 @@ class CompilerReport:
                 "error: " not in lines[idx]
                 and "warning: " not in lines[idx]
                 and "generated" not in lines[idx]
+                or "too many errors emitted, stopping now" in lines[idx]
             ):
                 idx += 1
             end = idx
