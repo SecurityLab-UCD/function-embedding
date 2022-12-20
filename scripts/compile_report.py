@@ -40,7 +40,7 @@ class Report:
             and any([re.findall(r, self.lines[1]) for r in match_rules])
         )
 
-    def get_struct_len_definition(self) -> Tuple[str, str, str]:
+    def get_struct_len_definition(self) -> Tuple[str, str]:
         assert self.struct_len_undefined()
         match_rules = [
             ".*\((.*)\) ?malloc\(.*\)",
