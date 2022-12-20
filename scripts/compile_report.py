@@ -89,6 +89,26 @@ class Report:
     def main_didnt_return_value(self):
         return "non-void function 'main' should return a value" in self.lines[0]
 
+    def has_undeclared_identifier_macro(self):
+        if (
+            "use of undeclared identifier '" not in self.lines[0]
+            or len(self.lines) <= 1
+        ):
+            return False
+        name = self.lines[0].split("'")[1]
+        allowed_usage = [
+            "[" + name + "],",
+            "[" + name + "];",
+            "[" + name + "]={0};",
+            "[" + name + "]={0},",
+        ]
+        error_line = self.lines[1].replace(" ", "")  # remove spaces
+        return any([usage in error_line for usage in allowed_usage])
+
+    def get_undefined_macro(self):
+        assert self.has_undeclared_identifier_macro()
+        return self.lines[0].split("'")[1]
+
 
 class CompilerReport:
     p: int

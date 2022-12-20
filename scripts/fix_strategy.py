@@ -76,6 +76,13 @@ def preprocess_file(cpp_path: str):
         with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
             header = hpp.read()
             f.write(header)
+        # if there is additional macro defined, write them to f
+        const_macro_path = path.join(EMBDING_HOME, "const_macro.hpp")
+        if path.exists(const_macro_path):
+            with open(const_macro_path, "r") as hpp:
+                macro = hpp.read()
+                f.write(macro)
+            os.remove(const_macro_path)
         f.write(code)
     os.remove(cpp_path + "~")
 
@@ -251,6 +258,28 @@ main_return_value = FixStrategy(
     _fix_main_didnt_return_value,
 )
 
+
+def _fix_undeclared_identifier_macro(
+    paths: Tuple[str, str], r: Report, cr: CompilerReport
+):
+    txt_path, cpp_path = paths
+    macro_name = r.get_undefined_macro()
+    macro_defn = f"#define {macro_name} 100\n"
+    with open(path.join(EMBDING_HOME, "const_macro.hpp"), "a") as hpp:
+        hpp.write(macro_defn)
+    if not path.exists(cpp_path + "~"):
+        with open(cpp_path + "~", "w") as f:
+            with open(txt_path, "r", errors="replace") as txt:
+                f.write(txt.read())
+
+
+undeclared_identifier_macro = FixStrategy(
+    "has undeclared identifier which should be a macro",
+    lambda r, _: r.has_undeclared_identifier_macro(),
+    _fix_undeclared_identifier_macro,
+)
+
+
 # Special cases
 # TODO: No special case yet.
 SPECIAL_CASE_LIST: List[Tuple[int, int]] = []
@@ -278,6 +307,7 @@ FIX_STRATEGIES = [
     struct_missing_semicolon,
     invalid_main_arg,
     main_return_value,
+    undeclared_identifier_macro,
     special_cases,
 ]
 
