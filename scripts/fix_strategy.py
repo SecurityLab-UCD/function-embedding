@@ -236,7 +236,6 @@ invalid_main_arg = FixStrategy(
 
 
 def _fix_main_didnt_return_value(paths: Tuple[str, str], r: Report, cr: CompilerReport):
-    pass
     txt_path, cpp_path = paths
     with open(cpp_path, "r") as f:
         lines = f.readlines()
