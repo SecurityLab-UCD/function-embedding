@@ -132,7 +132,6 @@ class DataSet:
 
         return re.sub(pattern, replacer, text)
 
-    # TODO
     def fuzz(
         self, jobs: int = CORES, timeout=60, seeds="seeds", on_exit=None, sample=100
     ):
@@ -148,7 +147,7 @@ class DataSet:
                     warning(f"{i}/{p} is a dir, is the dataset correct?")
                 bin_path = path.join(self.bindir, str(i), str(p))
                 out_path = path.join(self.outdir, str(i), str(p))
-                if not path.isfile(bin_path) and coin_toss(sample):
+                if path.isfile(bin_path) and coin_toss(sample):
                     bins_to_fuzz.append((bin_path, out_path))
 
         seeds = path.abspath(seeds)

@@ -72,6 +72,7 @@ def parallel_subprocess(
                     ret[i] = on_exit(p)
     # wait for remaining processes to exit
     for p, i in processes:
+        p.wait()
         # let `on_exit` to decide wait for or kill the process
         if on_exit is not None:
             ret[i] = on_exit(p)
