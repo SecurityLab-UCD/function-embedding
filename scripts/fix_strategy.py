@@ -234,6 +234,24 @@ invalid_main_arg = FixStrategy(
     _fix_main_invalid_arg,
 )
 
+
+def _fix_main_didnt_return_value(paths: Tuple[str, str], r: Report, cr: CompilerReport):
+    pass
+    txt_path, cpp_path = paths
+    with open(cpp_path, "r") as f:
+        lines = f.readlines()
+    (ret_ln, _) = r.get_loc()
+    lines[ret_ln - 1] = lines[ret_ln - 1].replace("return", "return 0")
+    with open(cpp_path, "w") as f:
+        f.writelines(lines)
+
+
+main_return_value = FixStrategy(
+    "main didn't return zero",
+    lambda r, _: r.main_didnt_return_value(),
+    _fix_main_didnt_return_value,
+)
+
 # Special cases
 # TODO: No special case yet.
 SPECIAL_CASE_LIST: List[Tuple[int, int]] = []
@@ -260,6 +278,7 @@ FIX_STRATEGIES = [
     struct_len_undefined,
     struct_missing_semicolon,
     invalid_main_arg,
+    main_return_value,
     special_cases,
 ]
 
