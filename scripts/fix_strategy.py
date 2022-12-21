@@ -2,7 +2,6 @@ from common import *
 from typing import Callable, Tuple
 from compile_report import *
 from dataset import *
-from build import dump_stderr_on_exit
 from tqdm import tqdm
 from functools import partial
 import sys
@@ -376,7 +375,7 @@ def main():
                 lines = []
                 preprocess_file(cr.get_path()[1])
 
-    dataset.compile_all(
+    dataset.compile(
         jobs=args.jobs, on_exit=partial(dump_stderr_on_exit, args.errfile + "-fixed")
     )
     print(f"Compiled:{sum([len(files) for _, _, files in os.walk(dataset.bindir)])}")
