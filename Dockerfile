@@ -1,7 +1,4 @@
-# Total time required:
-# 
-
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 
 RUN apt-get update && \
@@ -32,23 +29,6 @@ RUN cd $EMBDING_HOME && \
     cd $AFL && \
     make -j
 
-# Download dataset
-ENV POJ=$EMBDING_HOME/CodeXGLUE/Code-Code/Clone-detection-POJ-104/
-RUN cd $EMBDING_HOME && \ 
-    git clone https://github.com/microsoft/CodeXGLUE.git && \
-    cd CodeXGLUE/Code-Code/Clone-detection-POJ-104/ && \
-    cd dataset && \
-    gdown https://drive.google.com/uc?id=0B2i-vWnOu7MxVlJwQXN6eVNONUU && \
-    tar -xvf programs.tar.gz 
-    
-# Preprocess dataset into c files
-RUN apt install -y python-is-python3
-RUN cd $POJ/dataset && \ 
-    python preprocess.py
-
 COPY scripts $EMBDING_HOME/scripts
 COPY seeds $EMBDING_HOME/seeds
 COPY header.hpp $EMBDING_HOME/header.hpp
-
-# Compile C files into executable.
-# RUN cd $EMBDING_HOME && ./build.sh
