@@ -16,10 +16,6 @@ if LLVM == None:
     error("LLVM not set, please tell me where clang+llvm is.")
     exit(1)
 
-TIMEOUT = os.getenv("TIMEOUT")
-if TIMEOUT == None:
-    info("TIMEOUT not set, please tell me how long do you want to fuzz")
-
 CORES = os.getenv("CORES")
 if CORES == None:
     import multiprocessing
@@ -31,8 +27,6 @@ EMBDING_HOME = os.getenv("EMBDING_HOME")
 if EMBDING_HOME == None:
     error("EMBDING_HOME not set, please tell me where the code is.")
     exit(1)
-
-NUMSUBDIR = 1
 
 __T = TypeVar("__T")
 __R = TypeVar("__R")

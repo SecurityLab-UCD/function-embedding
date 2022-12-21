@@ -11,6 +11,7 @@ from replace_input import replace_file
 import requests
 import tarfile
 import random
+from functools import partial
 import argparse
 
 
@@ -290,7 +291,7 @@ def main():
         "-j", "--jobs", type=int, help="Number of threads to use.", default=CORES
     )
     parser.add_argument(
-        "-f", "--errfile", type=str, help="The file name to dump stderr", default="O"
+        "-e", "--errfile", type=str, help="The file name to dump stderr", default="O"
     )
     parser.add_argument(
         "-p",
@@ -313,6 +314,7 @@ def main():
     parser.add_argument(
         "-i", "--seeds", type=str, help="Seeds to initialize fuzzing", default="seeds"
     )
+
 
     args = parser.parse_args()
     workdir = args.workdir if args.workdir != "" else args.dataset
@@ -349,7 +351,11 @@ def main():
     elif args.pipeline == "preprocess":
         dataset.preprocess_all()
     elif args.pipeline == "compile":
-        dataset.compile(jobs=args.jobs, sample=args.sample)
+        dataset.compile(
+            jobs=args.jobs,
+            sample=args.sample,
+            on_exit=partial(dump_stderr_on_exit, args.errfile),
+        )
     elif args.pipeline == "fuzz":
         dataset.fuzz(
             jobs=args.jobs, timeout=args.time, seeds=args.seeds, sample=args.sample
