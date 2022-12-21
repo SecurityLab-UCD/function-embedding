@@ -1,12 +1,14 @@
 CodeXGLUE
 AFLplusplus
 tmp
-O
+O*
 list.txt
-O
 output*
 */__pycache__
 lib
 *.txt
 POJ
 *.pkl
+C++*
+IBM
+POJ104
