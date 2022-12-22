@@ -62,6 +62,19 @@ def format_one_file(src: str):
     )
 
 
+def run_one_file(paths: Tuple[str, str, str, str], timeout="1m"):
+    bin_to_run, fuzz_in, output, input_csv = paths
+    with open(fuzz_in, "rb") as fin, open(output, "wb") as fout, open(
+        input_csv, "wb"
+    ) as ferr:
+        return subprocess.Popen(
+            ["timeout", str(timeout), bin_to_run],
+            stdin=fin,
+            stdout=fout,
+            stderr=ferr,
+        )
+
+
 def coin_toss(percentage: float):
     return random.random() <= percentage / 100.0
 
@@ -160,10 +173,44 @@ class DataSet:
             on_exit,
         )
 
-    def postprocess(self, jobs: int = CORES, on_exit=None, sample=100):
+    def postprocess(self, jobs: int = CORES, on_exit=None, sample=100, timeout="1m"):
         """
         Run the program with fuzzing inputs
         """
+        bins_to_run: List[Tuple[str, str, str, str]] = []
+
+        info("Collecting binaries to run")
+        for i in tqdm(os.listdir(self.bindir)):
+            for p in os.listdir(path.join(self.bindir, str(i))):
+                if path.isdir(os.path.abspath(p)):
+                    warning(f"{i}/{p} is a dir, is the dataset correct?")
+
+                bin_path = path.join(self.bindir, str(i), str(p))
+                fuzz_out = path.join(self.outdir, str(i), str(p), "default")
+
+                # skip if current problem is not fuzzed nor selected by sample
+                if not (path.isdir(path.join(fuzz_out, "queue")) and coin_toss(sample)):
+                    continue
+
+                input_csv_dir = path.join(fuzz_out, "input_csv")
+                output_dir = path.join(fuzz_out, "output")
+                if not path.isdir(input_csv_dir):
+                    os.makedirs(input_csv_dir)
+                if not path.isdir(output_dir):
+                    os.makedirs(output_dir)
+
+                for q in os.listdir(path.join(fuzz_out, "queue")):
+                    fuzz_input_path = path.join(fuzz_out, "queue", str(q))
+                    if path.isdir(fuzz_input_path):
+                        continue
+                    output = path.join(output_dir, str(q))
+                    input_csv = path.join(input_csv_dir, str(q) + ".csv")
+                    bins_to_run.append((bin_path, fuzz_input_path, output, input_csv))
+
+        info(f"Runninng {len(bins_to_run)} binaries")
+        parallel_subprocess(
+            bins_to_run, jobs, partial(run_one_file, timeout=timeout), on_exit=on_exit
+        )
 
 
 class POJ104(DataSet):
@@ -312,9 +359,11 @@ def main():
         "-t", "--time", type=str, help="Time to fuzz one program", default="1m"
     )
     parser.add_argument(
+        "-tr", "--time_to_run", type=str, help="Time to run one program", default="1m"
+    )
+    parser.add_argument(
         "-i", "--seeds", type=str, help="Seeds to initialize fuzzing", default="seeds"
     )
-
 
     args = parser.parse_args()
     workdir = args.workdir if args.workdir != "" else args.dataset
@@ -346,6 +395,7 @@ def main():
         dataset.preprocess_all()
         dataset.compile(jobs=args.jobs, sample=args.sample)
         dataset.fuzz(jobs=args.jobs, timeout=args.time, seeds=args.seeds)
+        dataset.postprocess(jobs=args.jobs, timeout=args.time_to_run)
     elif args.pipeline == "download":
         dataset.download()
     elif args.pipeline == "preprocess":
@@ -361,7 +411,9 @@ def main():
             jobs=args.jobs, timeout=args.time, seeds=args.seeds, sample=args.sample
         )
     elif args.pipeline == "postprocess":
-        dataset.postprocess(jobs=args.jobs, sample=args.sample)
+        dataset.postprocess(
+            jobs=args.jobs, timeout=args.time_to_run, sample=args.sample
+        )
     else:
         unreachable("Unkown pipeline provided")
 
