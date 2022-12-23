@@ -7,6 +7,7 @@ output*
 */__pycache__
 lib
 *.txt
+!requirements.txt
 POJ
 *.pkl
 C++*
