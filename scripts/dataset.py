@@ -13,6 +13,8 @@ import tarfile
 import random
 from functools import partial
 import argparse
+import yaml
+from multiprocessing import Pool
 
 
 def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
@@ -73,6 +75,14 @@ def run_one_file(paths: Tuple[str, str, str, str], timeout="1m"):
             stdout=fout,
             stderr=ferr,
         )
+
+
+def check_one_fuzz_stat(fuzz_stat: str, min_thresh: int) -> bool:
+    if not path.exists(fuzz_stat):
+        return False
+    with open(fuzz_stat, "r") as f:
+        stat = yaml.safe_load(f)
+        return stat["run_time"] >= min_thresh
 
 
 def coin_toss(percentage: float):
@@ -172,6 +182,36 @@ class DataSet:
             lambda r: fuzz_one_file(r, timeout=timeout, seeds=seeds),
             on_exit,
         )
+
+    def check_fuzz(self, jobs: int = CORES, min_thresh: int = 5):
+        """
+        Check Fuzzing Completeness
+        """
+        f_to_check: List[str] = []
+        info("Collecting problems to check")
+        for i in tqdm(os.listdir(self.bindir)):
+            for p in os.listdir(path.join(self.bindir, str(i))):
+                if path.isdir(os.path.abspath(p)):
+                    warning(f"{i}/{p} is a dir, is the dataset correct?")
+
+                bin_path = path.join(self.bindir, str(i), str(p))
+                if path.isfile(bin_path):
+                    fuzzer_stats = path.join(
+                        self.outdir, str(i), str(p), "default", "fuzzer_stats"
+                    )
+                    f_to_check.append(fuzzer_stats)
+
+        info(f"Checking all {len(f_to_check)} output directories")
+        with Pool(jobs) as p:
+            fuzz_stats = p.map(
+                partial(check_one_fuzz_stat, min_thresh=min_thresh), f_to_check
+            )
+            if not all(fuzz_stats):
+                warning(
+                    f"{fuzz_stats.count(False)}/{len(f_to_check)} binaries failed fuzzing"
+                )
+            else:
+                info("All possible binaries has valid fuzzing results")
 
     def postprocess(self, jobs: int = CORES, on_exit=None, sample=100, timeout="1m"):
         """
@@ -346,7 +386,15 @@ def main():
         type=str,
         help="The stage of the job to run",
         default="all",
-        choices=["all", "download", "preprocess", "compile", "fuzz", "postprocess"],
+        choices=[
+            "all",
+            "download",
+            "preprocess",
+            "compile",
+            "fuzz",
+            "check",
+            "postprocess",
+        ],
     )
     parser.add_argument(
         "-s",
@@ -410,6 +458,8 @@ def main():
         dataset.fuzz(
             jobs=args.jobs, timeout=args.time, seeds=args.seeds, sample=args.sample
         )
+    elif args.pipeline == "check":
+        dataset.check_fuzz(jobs=args.jobs)
     elif args.pipeline == "postprocess":
         dataset.postprocess(
             jobs=args.jobs, timeout=args.time_to_run, sample=args.sample
