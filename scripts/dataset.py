@@ -47,7 +47,18 @@ def compile_one_file(p: Tuple[str, str]):
 def fuzz_one_file(p: Tuple[str, str], timeout: int, seeds: str):
     bin, out = p
     process = subprocess.Popen(
-        [f"{AFL}/afl-fuzz", "-V", str(timeout), "-i", seeds, "-o", out, bin],
+        [
+            f"{AFL}/afl-fuzz",
+            "-V",
+            str(timeout),
+            "-i",
+            seeds,
+            "-o",
+            out,
+            "-t",
+            "50",
+            bin,
+        ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -88,13 +99,18 @@ def check_one_fuzz_stat(fuzz_stat: str, min_thresh: int) -> bool:
 def coin_toss(percentage: float):
     return random.random() <= percentage / 100.0
 
+
 def fuzzed(out_path):
     # TODO: Test stats in `fuzzer_stats` to validate the fuzzing result.
     # TODO: Add command line to override this. Aka force re-fuzz
-    return path.isdir(out_path) and path.isfile(path.join(out_path, "default", "fuzzer_stats"))
+    return path.isdir(out_path) and path.isfile(
+        path.join(out_path, "default", "fuzzer_stats")
+    )
+
 
 def built(bin_path):
     return path.isfile(bin_path)
+
 
 class DataSet:
     def __init__(self, workdir, txtdir, language):
@@ -411,10 +427,14 @@ def main():
         default=100.0,
     )
     parser.add_argument(
-        "-t", "--time", type=str, help="Time to fuzz one program", default="1m"
+        "-ft", "--fuzztime", type=str, help="Time to fuzz one program", default="1m"
     )
     parser.add_argument(
-        "-tr", "--time_to_run", type=str, help="Time to run one program", default="1m"
+        "-st",
+        "--singletime",
+        type=str,
+        help="Time to run one single program",
+        default="1m",
     )
     parser.add_argument(
         "-i", "--seeds", type=str, help="Seeds to initialize fuzzing", default="seeds"
@@ -443,14 +463,14 @@ def main():
         seconds_per_unit = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
         return int(s[:-1]) * seconds_per_unit[s[-1]]
 
-    args.time = convert_to_seconds(args.time)
+    args.fuzztime = convert_to_seconds(args.fuzztime)
 
     if args.pipeline == "all":
         dataset.download()
         dataset.preprocess_all()
         dataset.build(jobs=args.jobs, sample=args.sample)
-        dataset.fuzz(jobs=args.jobs, timeout=args.time, seeds=args.seeds)
-        dataset.postprocess(jobs=args.jobs, timeout=args.time_to_run)
+        dataset.fuzz(jobs=args.jobs, timeout=args.fuzztime, seeds=args.seeds)
+        dataset.postprocess(jobs=args.jobs, timeout=args.singletime)
     elif args.pipeline == "download":
         dataset.download()
     elif args.pipeline == "preprocess":
@@ -463,14 +483,12 @@ def main():
         )
     elif args.pipeline == "fuzz":
         dataset.fuzz(
-            jobs=args.jobs, timeout=args.time, seeds=args.seeds, sample=args.sample
+            jobs=args.jobs, timeout=args.fuzztime, seeds=args.seeds, sample=args.sample
         )
     elif args.pipeline == "check":
         dataset.check_fuzz(jobs=args.jobs)
     elif args.pipeline == "postprocess":
-        dataset.postprocess(
-            jobs=args.jobs, timeout=args.time_to_run, sample=args.sample
-        )
+        dataset.postprocess(jobs=args.jobs, timeout=args.singletime, sample=args.sample)
     else:
         unreachable("Unkown pipeline provided")
 
