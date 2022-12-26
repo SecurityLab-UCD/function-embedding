@@ -12,6 +12,7 @@ ENV HOME=/root
 ENV EMBDING_HOME=$HOME
 ENV AFL=$EMBDING_HOME/AFLplusplus
 ENV PATH=$PATH:$HOME/clang+llvm/bin
+ENV LLVM=$HOME/clang+llvm
 ENV CLANG_LLVM=clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04
 
 # Install LLVM, switch to faster source if you have to.
@@ -31,4 +32,4 @@ RUN cd $EMBDING_HOME && \
 
 COPY scripts $EMBDING_HOME/scripts
 COPY seeds $EMBDING_HOME/seeds
-COPY header.hpp $EMBDING_HOME/header.hpp
+COPY *.[h|c]pp $EMBDING_HOME/

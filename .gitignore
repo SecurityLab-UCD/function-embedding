@@ -9,7 +9,6 @@ lib
 *.txt
 !requirements.txt
 POJ
-*.pkl
-C++*
+C\+\+*
 IBM
 POJ104
