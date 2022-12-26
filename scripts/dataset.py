@@ -100,18 +100,6 @@ def coin_toss(percentage: float):
     return random.random() <= percentage / 100.0
 
 
-def fuzzed(out_path):
-    # TODO: Test stats in `fuzzer_stats` to validate the fuzzing result.
-    # TODO: Add command line to override this. Aka force re-fuzz
-    return path.isdir(out_path) and path.isfile(
-        path.join(out_path, "default", "fuzzer_stats")
-    )
-
-
-def built(bin_path):
-    return path.isfile(bin_path)
-
-
 class DataSet:
     def __init__(self, workdir, txtdir, language):
         self.workdir = path.abspath(workdir)
@@ -142,7 +130,9 @@ class DataSet:
             if not path.isdir(subdir):
                 os.makedirs(subdir)
 
-    def build(self, jobs: int = CORES, on_exit=None, sample=100):
+    def build(self, jobs: int = CORES, on_exit=None, sample=100, built=None):
+        if built is None:
+            built = lambda bin_path: path.isfile(bin_path)
         self.mkdir_if_doesnt_exist(self.bindir)
         # Copy the files and do some preprocessing
         files_to_compile: List[Tuple[str, str]] = []
@@ -180,11 +170,19 @@ class DataSet:
         return re.sub(pattern, replacer, text)
 
     def fuzz(
-        self, jobs: int = CORES, timeout=60, seeds="seeds", on_exit=None, sample=100
+        self,
+        jobs: int = CORES,
+        timeout=60,
+        seeds="seeds",
+        on_exit=None,
+        sample=100,
+        fuzzed=None,
     ):
         """
         Fuzz the program
         """
+        if fuzzed is None:
+            fuzzed = lambda out_path: ExprimentInfo(out_path).sufficiently_fuzzed()
         self.mkdir_if_doesnt_exist(self.outdir)
         bins_to_fuzz: List[Tuple[str, str]] = []
         info("Collecting binaries to fuzz")

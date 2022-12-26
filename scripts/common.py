@@ -71,3 +71,26 @@ def parallel_subprocess(
         if on_exit is not None:
             ret[i] = on_exit(p)
     return ret
+
+
+class ExprimentInfo:
+    expr_path: str
+    fuzzed: bool
+
+    def __init__(self, expr_path):
+        self.expr_path = expr_path
+
+        try:
+            with open(self.get_fuzzer_stats_path(), "r") as f:
+                for line in f:
+                    line = line.split(" : ")
+                    self.__dict__[line[0].strip()] = line[1]
+            self.run_time = int(self.run_time)
+            self.bitmap_cvg = float(self.bitmap_cvg[-1])
+            self.execs_per_sec = float(self.execs_per_sec)
+            self.execs_done = int(self.execs_done)
+        except:
+            self.fuzzed = False
+
+    def sufficiently_fuzzed(self):
+        return self.fuzzed and self.bitmap_cvg > 50.0
