@@ -273,6 +273,36 @@ class DataSet:
             bins_to_run, jobs, partial(run_one_file, timeout=timeout), on_exit=on_exit
         )
 
+    def summarize(self):
+        num_programs = 0
+        num_built = 0
+        num_fuzzed = 0
+        num_sufficiently_fuzzed = 0
+        info("Summarizing dataset result")
+        for i in tqdm(os.listdir(self.srcdir)):
+            for p in os.listdir(path.join(self.srcdir, str(i))):
+                p = p[:-4]
+                bin_path = path.join(self.bindir, str(i), str(p))
+                fuzz_out = path.join(self.outdir, str(i), str(p))
+                num_programs += 1
+                if path.isfile(bin_path):
+                    num_built += 1
+                    expr = ExprimentInfo(fuzz_out)
+                    if expr.fuzzed:
+                        num_fuzzed += 1
+                        num_sufficiently_fuzzed += (
+                            1 if expr.sufficiently_fuzzed() else 0
+                        )
+        print(
+            f"""
+            Number of programs in the dataset: {num_programs} (100.0%)
+            Number of programs compiled: {num_built} ({num_built / num_programs * 100:.2f}%)
+            Number of programs fuzzed: {num_fuzzed} ({num_fuzzed / num_programs * 100:.2f}%)
+            Number of programs reached above 50% coverage: {num_sufficiently_fuzzed} ({num_sufficiently_fuzzed / num_programs * 100:.2f}%)
+        """
+        )
+
+
 
 class POJ104(DataSet):
     def __init__(self, workdir):
@@ -415,6 +445,7 @@ def main():
             "fuzz",
             "check",
             "postprocess",
+            "summarize",
         ],
     )
     parser.add_argument(
@@ -487,6 +518,8 @@ def main():
         dataset.check_fuzz(jobs=args.jobs)
     elif args.pipeline == "postprocess":
         dataset.postprocess(jobs=args.jobs, timeout=args.singletime, sample=args.sample)
+    elif args.pipeline == "summarize":
+        dataset.summarize()
     else:
         unreachable("Unkown pipeline provided")
 

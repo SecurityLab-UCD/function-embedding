@@ -79,14 +79,14 @@ class ExprimentInfo:
 
     def __init__(self, expr_path):
         self.expr_path = expr_path
-
+        self.fuzzed = True
         try:
             with open(self.get_fuzzer_stats_path(), "r") as f:
                 for line in f:
                     line = line.split(" : ")
                     self.__dict__[line[0].strip()] = line[1]
             self.run_time = int(self.run_time)
-            self.bitmap_cvg = float(self.bitmap_cvg[-1])
+            self.bitmap_cvg = float(self.bitmap_cvg[:-2])
             self.execs_per_sec = float(self.execs_per_sec)
             self.execs_done = int(self.execs_done)
         except:
