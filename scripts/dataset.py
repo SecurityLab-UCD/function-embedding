@@ -112,6 +112,11 @@ class DataSet:
     def download(self):
         pass
 
+    def for_all_src(self):
+        for i in tqdm(os.listdir(self.srcdir)):
+            for p in os.listdir(path.join(self.srcdir, str(i))):
+                yield (i, p[:-4])
+
     def preprocess_all(self):
         if not path.isdir(self.srcdir):
             info("Preprocessing not set, using symlink...")
@@ -137,15 +142,13 @@ class DataSet:
         # Copy the files and do some preprocessing
         files_to_compile: List[Tuple[str, str]] = []
         info("Collecting codes to compile")
-        for i in tqdm(os.listdir(self.srcdir)):
-            for p in os.listdir(path.join(self.srcdir, str(i))):
-                if path.isdir(os.path.abspath(p)):
-                    warning(f"{i}/{p} is a dir, is the dataset correct?")
-                p = p[:-4]
-                src_path = path.join(self.srcdir, str(i), str(p) + ".cpp")
-                bin_path = path.join(self.bindir, str(i), str(p))
-                if not built(bin_path) and coin_toss(sample):
-                    files_to_compile.append((src_path, bin_path))
+        for (i, p) in self.for_all_src():
+            if path.isdir(os.path.abspath(p)):
+                warning(f"{i}/{p} is a dir, is the dataset correct?")
+            src_path = path.join(self.srcdir, str(i), str(p) + ".cpp")
+            bin_path = path.join(self.bindir, str(i), str(p))
+            if not built(bin_path) and coin_toss(sample):
+                files_to_compile.append((src_path, bin_path))
 
         info("Compiling all the code")
         parallel_subprocess(files_to_compile, jobs, compile_one_file, on_exit)
@@ -279,20 +282,18 @@ class DataSet:
         num_fuzzed = 0
         num_sufficiently_fuzzed = 0
         info("Summarizing dataset result")
-        for i in tqdm(os.listdir(self.srcdir)):
-            for p in os.listdir(path.join(self.srcdir, str(i))):
-                p = p[:-4]
-                bin_path = path.join(self.bindir, str(i), str(p))
-                fuzz_out = path.join(self.outdir, str(i), str(p))
-                num_programs += 1
-                if path.isfile(bin_path):
-                    num_built += 1
-                    expr = ExprimentInfo(fuzz_out)
-                    if expr.fuzzed:
-                        num_fuzzed += 1
-                        num_sufficiently_fuzzed += (
-                            1 if expr.sufficiently_fuzzed() else 0
-                        )
+        for (i, p) in self.for_all_src():
+            bin_path = path.join(self.bindir, str(i), str(p))
+            fuzz_out = path.join(self.outdir, str(i), str(p))
+            num_programs += 1
+            if path.isfile(bin_path):
+                num_built += 1
+                expr = ExprimentInfo(fuzz_out)
+                if expr.fuzzed:
+                    num_fuzzed += 1
+                    num_sufficiently_fuzzed += (
+                        1 if expr.sufficiently_fuzzed() else 0
+                    )
         print(
             f"""
             Number of programs in the dataset: {num_programs} (100.0%)
