@@ -1,6 +1,11 @@
 . scripts/env.sh
 
+# Which LLVM are we using?
+if [ ! -d $CLANG_LLVM]; then
+    CLANG_LLVM=clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04
+fi
 
+# Download and install LLVM
 if [ ! -d $LLVM ]; then
     LLVM_SRC=https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/$CLANG_LLVM.tar.xz
     cd $EMBDING_HOME 
@@ -11,6 +16,7 @@ if [ ! -d $LLVM ]; then
     ln -s clang+llvm14 clang+llvm 
 fi
 
+# Download and install AFL
 if [ ! -d $AFL ]; then
     git clone https://github.com/AFLplusplus/AFLplusplus.git
 fi
