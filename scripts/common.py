@@ -94,3 +94,12 @@ class ExprimentInfo:
 
     def sufficiently_fuzzed(self):
         return self.fuzzed and self.bitmap_cvg > 50.0
+
+    def to_expr_path(self):
+        return self.expr_path
+
+    def get_fuzzer_stats_path(self):
+        return os.path.join(self.to_expr_path(), "default", "fuzzer_stats")
+
+    def get_plot_data_path(self):
+        return os.path.join(self.to_expr_path(), "default", "plot_data")
