@@ -88,6 +88,13 @@ def check_one_fuzz_stat(fuzz_stat: str, min_thresh: int) -> bool:
 def coin_toss(percentage: float):
     return random.random() <= percentage / 100.0
 
+def fuzzed(out_path):
+    # TODO: Test stats in `fuzzer_stats` to validate the fuzzing result.
+    # TODO: Add command line to override this. Aka force re-fuzz
+    return path.isdir(out_path) and path.isfile(path.join(out_path, "default", "fuzzer_stats"))
+
+def built(bin_path):
+    return path.isfile(bin_path)
 
 class DataSet:
     def __init__(self, workdir, txtdir, language):
@@ -119,7 +126,7 @@ class DataSet:
             if not path.isdir(subdir):
                 os.makedirs(subdir)
 
-    def compile(self, jobs: int = CORES, on_exit=None, sample=100):
+    def build(self, jobs: int = CORES, on_exit=None, sample=100):
         self.mkdir_if_doesnt_exist(self.bindir)
         # Copy the files and do some preprocessing
         files_to_compile: List[Tuple[str, str]] = []
@@ -131,7 +138,7 @@ class DataSet:
                 p = p[:-4]
                 src_path = path.join(self.srcdir, str(i), str(p) + ".cpp")
                 bin_path = path.join(self.bindir, str(i), str(p))
-                if not path.isfile(bin_path) and coin_toss(sample):
+                if not built(bin_path) and coin_toss(sample):
                     files_to_compile.append((src_path, bin_path))
 
         info("Compiling all the code")
@@ -171,7 +178,7 @@ class DataSet:
                     warning(f"{i}/{p} is a dir, is the dataset correct?")
                 bin_path = path.join(self.bindir, str(i), str(p))
                 out_path = path.join(self.outdir, str(i), str(p))
-                if path.isfile(bin_path) and coin_toss(sample):
+                if path.isfile(bin_path) and not fuzzed(out_path) and coin_toss(sample):
                     bins_to_fuzz.append((bin_path, out_path))
 
         seeds = path.abspath(seeds)
@@ -441,7 +448,7 @@ def main():
     if args.pipeline == "all":
         dataset.download()
         dataset.preprocess_all()
-        dataset.compile(jobs=args.jobs, sample=args.sample)
+        dataset.build(jobs=args.jobs, sample=args.sample)
         dataset.fuzz(jobs=args.jobs, timeout=args.time, seeds=args.seeds)
         dataset.postprocess(jobs=args.jobs, timeout=args.time_to_run)
     elif args.pipeline == "download":
@@ -449,7 +456,7 @@ def main():
     elif args.pipeline == "preprocess":
         dataset.preprocess_all()
     elif args.pipeline == "compile":
-        dataset.compile(
+        dataset.build(
             jobs=args.jobs,
             sample=args.sample,
             on_exit=partial(dump_stderr_on_exit, args.errfile),
