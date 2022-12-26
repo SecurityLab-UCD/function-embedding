@@ -33,3 +33,6 @@ RUN cd $EMBDING_HOME && \
 COPY scripts $EMBDING_HOME/scripts
 COPY seeds $EMBDING_HOME/seeds
 COPY *.[h|c]pp $EMBDING_HOME/
+COPY requirements.txt $EMBDING_HOME/requirements.txt
+
+RUN cd $EMBDING_HOME && pip3 install -r requirements.txt
