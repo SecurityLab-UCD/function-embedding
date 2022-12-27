@@ -117,21 +117,17 @@ class DataSet:
         """manully set a range of problem to run
 
         Args:
-            problem_range (str): start:end
+            problem_range (str): range(start, end)
         """
-        start = 1
-        end = max(map(int, os.listdir(self.txtdir)))
-        pr = problem_range.split(":")
-        if len(pr) > 2:
-            unreachable("Invalid problem range")
+        pr = eval(problem_range)
+        assert isinstance(pr, Iterable), "Invalid problem range given"
+        assert (
+            max(pr) <= len(self.problems) and min(pr) >= 0
+        ), "Range selection index out of range"
 
-        if pr[0].isnumeric():
-            start = int(pr[0])
-        if pr[1].isnumeric() and int(pr[1]) < end:
-            end = int(pr[1])
-        assert start <= end
-
-        self.problems = range(start, end + 1)
+        if pr is None:
+            return
+        self.problems = [self.problems[i] for i in pr]
 
     def for_all_src(self):
         for i in tqdm(self.problems):
@@ -494,7 +490,7 @@ def main():
         help="""range of problems (inclusive) to work on, use ':' to separate.
         If either side of ':' is leaved blank, 
         it will be set to default value (1 and max).""",
-        default=":",
+        default="None",
     )
 
     args = parser.parse_args()
