@@ -1,6 +1,5 @@
 FROM ubuntu:22.04
 
-
 RUN apt-get update && \
     apt-get -y upgrade 
 ENV DEBIAN_FRONTEND noninteractive
@@ -15,11 +14,12 @@ ENV PATH=$PATH:$HOME/clang+llvm/bin
 ENV LLVM=$HOME/clang+llvm
 
 ARG CLANG_LLVM=clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04
+COPY scripts/*.sh $EMBDING_HOME/scripts/
+RUN cd $EMBDING_HOME && ./scripts/init.sh
+
+COPY requirements.txt $EMBDING_HOME/requirements.txt
+RUN cd $EMBDING_HOME && pip3 install -r requirements.txt
 
 COPY scripts $EMBDING_HOME/scripts
 COPY seeds $EMBDING_HOME/seeds
 COPY *.[h|c]pp $EMBDING_HOME/
-COPY requirements.txt $EMBDING_HOME/requirements.txt
-
-RUN cd $EMBDING_HOME && ./scripts/init.sh
-RUN cd $EMBDING_HOME && pip3 install -r requirements.txt
