@@ -487,9 +487,7 @@ def main():
         "-r",
         "--range",
         type=str,
-        help="""range of problems (inclusive) to work on, use ':' to separate.
-        If either side of ':' is leaved blank, 
-        it will be set to default value (1 and max).""",
+        help="A string of python iterable object, or None",
         default="None",
     )
 
