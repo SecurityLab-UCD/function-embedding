@@ -93,7 +93,7 @@ class ExprimentInfo:
             self.fuzzed = False
 
     def sufficiently_fuzzed(self):
-        return self.fuzzed and self.bitmap_cvg > 50.0
+        return self.fuzzed and (self.bitmap_cvg > 50.0 or self.run_time > 30)
 
     def to_expr_path(self):
         return self.expr_path

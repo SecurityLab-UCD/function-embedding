@@ -291,18 +291,15 @@ class DataSet:
                 expr = ExprimentInfo(fuzz_out)
                 if expr.fuzzed:
                     num_fuzzed += 1
-                    num_sufficiently_fuzzed += (
-                        1 if expr.sufficiently_fuzzed() else 0
-                    )
+                    num_sufficiently_fuzzed += 1 if expr.bitmap_cvg > 40 else 0
         print(
             f"""
             Number of programs in the dataset: {num_programs} (100.0%)
             Number of programs compiled: {num_built} ({num_built / num_programs * 100:.2f}%)
             Number of programs fuzzed: {num_fuzzed} ({num_fuzzed / num_programs * 100:.2f}%)
-            Number of programs reached above 50% coverage: {num_sufficiently_fuzzed} ({num_sufficiently_fuzzed / num_programs * 100:.2f}%)
+            Number of programs reached above 40% coverage: {num_sufficiently_fuzzed} ({num_sufficiently_fuzzed / num_programs * 100:.2f}%)
         """
         )
-
 
 
 class POJ104(DataSet):
