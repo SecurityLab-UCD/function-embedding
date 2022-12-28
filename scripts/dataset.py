@@ -119,14 +119,21 @@ class DataSet:
         Args:
             problem_range (str): range(start, end)
         """
-        pr = eval(problem_range)
-        assert isinstance(pr, Iterable), "Invalid problem range given"
-        assert (
-            max(pr) <= len(self.problems) and min(pr) >= 0
-        ), "Range selection index out of range"
+        try:
+            # ToDo: check for unallowed functions b4 eval
+            pr = eval(problem_range)
+        except Exception as e:
+            logging.error(f"cannot eval range: {e}")
+            exit(1)
 
         if pr is None:
             return
+
+        assert isinstance(pr, Iterable), "Invalid problem range given"
+        assert (
+            max(pr) < len(self.problems) and min(pr) >= 0
+        ), "Range selection index out of range"
+
         self.problems = [self.problems[i] for i in pr]
 
     def for_all_src(self):
