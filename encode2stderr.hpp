@@ -12,6 +12,7 @@
 #include <vector>
 
 std::vector<std::string> split_var_names(std::string names) {
+  // ToDo: change to C implementation
   std::istringstream ss(names);
   std::string token;
   std::vector<std::string> res;
@@ -33,6 +34,7 @@ const std::set<std::string> FORMAT_TYPES = {
 };
 
 std::vector<std::string> split_fmt_types(std::string fmt) {
+  // ToDo: change to C implementation
   std::istringstream ss(fmt);
   std::string token;
   std::vector<std::string> res;
@@ -112,13 +114,19 @@ void print_stderr(std::string name, std::string type, const void *val_ptr) {
 
 // https://en.cppreference.com/w/cpp/language/parameter_pack
 template <class... Args>
-int scanf_alt(std::string fmt, std::string names, Args const &...args) {
-  int scanf_return_val = scanf(fmt.c_str(), args...);
+int scanf_alt(const char *fmt, const char *names, Args const &...args) {
+  int scanf_return_val = scanf(fmt, args...);
 
   // this tuple_size method to count args only works for c++11 and above
   int narg = std::tuple_size<decltype(std::make_tuple(args...))>::value;
   const void *values[] = {args...};
-  std::vector<std::string> name_tokens = split_var_names(names);
+
+  // a dynamic buff for names to avoid mem issue
+  size_t len = strlen(names) + 1;
+  char *buff = new char[len];
+  memset(buff, 0, len);
+  strcpy(buff, names);
+  std::vector<std::string> name_tokens = split_var_names(buff);
   std::vector<std::string> type_tokens = split_fmt_types(fmt);
   assert(name_tokens.size() == narg);
   assert(type_tokens.size() == narg);
