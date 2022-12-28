@@ -108,8 +108,9 @@ class DataSet:
         self.bindir = path.join(self.workdir, "build")
         self.outdir = path.join(self.workdir, "fuzz")
         self.lang = language
-        # TODO: If pipeline is `all`, problems may not be set.
-        # But if we directly listdir, we can't download as txtdir doesn't exist when downloading.
+        self.update_problems()
+
+    def update_problems(self):
         if path.isdir(self.txtdir):
             self.problems = os.listdir(self.txtdir)
 
@@ -541,6 +542,7 @@ def main():
 
     if args.pipeline == "all":
         dataset.download()
+        dataset.update_problems()
         dataset.preprocess_all()
         dataset.build(jobs=args.jobs, sample=args.sample)
         dataset.fuzz(jobs=args.jobs, timeout=args.fuzztime, seeds=args.seeds)
