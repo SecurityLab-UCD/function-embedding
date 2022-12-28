@@ -108,7 +108,10 @@ class DataSet:
         self.bindir = path.join(self.workdir, "build")
         self.outdir = path.join(self.workdir, "fuzz")
         self.lang = language
-        self.problems = os.listdir(self.txtdir)
+        # TODO: If pipeline is `all`, problems may not be set.
+        # But if we directly listdir, we can't download as txtdir doesn't exist when downloading.
+        if path.isdir(self.txtdir):
+            self.problems = os.listdir(self.txtdir)
 
     def download(self):
         pass
