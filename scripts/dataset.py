@@ -334,15 +334,27 @@ class POJ104(DataSet):
         ]
 
     def download(self):
-        # TODO: Download it to some hidden place, and link data to self.txtdir
-        pass
+        if path.isdir(self.txtdir):
+            return
+        cur_path = os.getcwd()
+        info("Downloading dataset repo.")
+        os.system("git clone https://github.com/microsoft/CodeXGLUE.git .CodeXGLUE")
+        os.system(
+            f"ln -s .CodeXGLUE/Code-Code/Clone-detection-POJ-104/dataset/ {self.workdir}"
+        )
+        os.chdir(path.join(cur_path, self.workdir))
+        info("Downloading dataset, may take a while.")
+        os.system("gdown https://drive.google.com/uc?id=0B2i-vWnOu7MxVlJwQXN6eVNONUU")
+        info("Extracting dataset.")
+        os.system("tar -xvf programs.tar.gz")
+        # Not good but import it doesn't really work
+        exec(open("preprocess.py").read())
+        os.chdir(cur_path)
 
     def preprocess_all(self):
         if not path.isdir(self.txtdir):
-            # TODO: Call download here.
-            error(
-                f"{self.txtdir} doesn't exist yet, please refer to README to download the dataset first."
-            )
+            warning(f"{self.txtdir} doesn't exist yet.")
+            self.download()
         self.mkdir_if_doesnt_exist(self.srcdir)
         info("Preprocessing text files into codes")
         for i in tqdm(self.problems):
