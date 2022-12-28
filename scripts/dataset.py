@@ -108,12 +108,36 @@ class DataSet:
         self.bindir = path.join(self.workdir, "build")
         self.outdir = path.join(self.workdir, "fuzz")
         self.lang = language
+        self.problems = os.listdir(self.txtdir)
 
     def download(self):
         pass
 
+    def set_problems(self, problem_range: str):
+        """manully set a range of problem to run
+
+        Args:
+            problem_range (str): range(start, end)
+        """
+        try:
+            # ToDo: check for unallowed functions b4 eval
+            pr = eval(problem_range)
+        except Exception as e:
+            logging.error(f"cannot eval range: {e}")
+            exit(1)
+
+        if pr is None:
+            return
+
+        assert isinstance(pr, Iterable), "Invalid problem range given"
+        assert (
+            max(pr) < len(self.problems) and min(pr) >= 0
+        ), "Range selection index out of range"
+
+        self.problems = [self.problems[i] for i in pr]
+
     def for_all_src(self):
-        for i in tqdm(os.listdir(self.srcdir)):
+        for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.srcdir, str(i))):
                 yield (i, p[:-4])
 
@@ -130,7 +154,7 @@ class DataSet:
     def mkdir_if_doesnt_exist(self, dir):
         if not path.isdir(dir):
             os.makedirs(dir)
-        for i in os.listdir(self.txtdir):
+        for i in self.problems:
             subdir = path.join(dir, str(i))
             if not path.isdir(subdir):
                 os.makedirs(subdir)
@@ -189,7 +213,7 @@ class DataSet:
         self.mkdir_if_doesnt_exist(self.outdir)
         bins_to_fuzz: List[Tuple[str, str]] = []
         info("Collecting binaries to fuzz")
-        for i in tqdm(os.listdir(self.bindir)):
+        for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.bindir, str(i))):
                 if path.isdir(os.path.abspath(p)):
                     warning(f"{i}/{p} is a dir, is the dataset correct?")
@@ -244,7 +268,7 @@ class DataSet:
         bins_to_run: List[Tuple[str, str, str, str]] = []
 
         info("Collecting binaries to run")
-        for i in tqdm(os.listdir(self.bindir)):
+        for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.bindir, str(i))):
                 if path.isdir(os.path.abspath(p)):
                     warning(f"{i}/{p} is a dir, is the dataset correct?")
@@ -321,7 +345,7 @@ class POJ104(DataSet):
             )
         self.mkdir_if_doesnt_exist(self.srcdir)
         info("Preprocessing text files into codes")
-        for i in tqdm(os.listdir(self.txtdir)):
+        for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.txtdir, str(i))):
                 p = p[:-4]
                 txt_path = path.join(self.txtdir, str(i), str(p) + ".txt")
@@ -466,6 +490,13 @@ def main():
     parser.add_argument(
         "-i", "--seeds", type=str, help="Seeds to initialize fuzzing", default="seeds"
     )
+    parser.add_argument(
+        "-r",
+        "--range",
+        type=str,
+        help="A string of python iterable object, or None",
+        default="None",
+    )
 
     args = parser.parse_args()
     workdir = args.workdir if args.workdir != "" else args.dataset
@@ -491,6 +522,7 @@ def main():
         return int(s[:-1]) * seconds_per_unit[s[-1]]
 
     args.fuzztime = convert_to_seconds(args.fuzztime)
+    dataset.set_problems(args.range)
 
     if args.pipeline == "all":
         dataset.download()
