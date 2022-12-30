@@ -27,15 +27,20 @@ def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
         f.write(stderr)
 
 
-def compile_one_file(p: Tuple[str, str]):
+def compile_one_file(p: Tuple[str, str], lang: str):
     src, dst = p
-    # TODO: if src in blacklist, use another copmile strategy.
-    cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst]
+    cmd = []
 
-    # TODO: this method to get file id only works for POJ104
-    f_id = src.rsplit("src/")[1].split(".cpp")[0]
-    if f_id in POJ104_NO_MATH_H_LIST:
-        cmd.append("-D_NO_MATH_H_")
+    if lang == "C/C++":
+        # TODO: if src in blacklist, use another copmile strategy.
+        cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst]
+
+        # TODO: this method to get file id only works for POJ104
+        f_id = src.rsplit("src/")[1].split(".cpp")[0]
+        if f_id in POJ104_NO_MATH_H_LIST:
+            cmd.append("-D_NO_MATH_H_")
+    elif lang == "Java":
+        cmd = ["javac", src, "-d", dst]
 
     return subprocess.Popen(
         cmd,
@@ -185,7 +190,12 @@ class DataSet:
                 files_to_compile.append((src_path, bin_path))
 
         info("Compiling all the code")
-        parallel_subprocess(files_to_compile, jobs, compile_one_file, on_exit)
+        parallel_subprocess(
+            files_to_compile,
+            jobs,
+            lambda r: compile_one_file(r, lang=self.lang),
+            on_exit,
+        )
 
     def remove_comments(self, text: str) -> str:
         # https://stackoverflow.com/questions/241327/remove-c-and-c-comments-using-python
@@ -196,7 +206,7 @@ class DataSet:
             else:
                 return s
 
-        if self.lang == "C/C++":
+        if self.lang in ["C/C++", "Java"]:
             pattern = re.compile(
                 r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
                 re.DOTALL | re.MULTILINE,
@@ -499,15 +509,6 @@ class IBMPython800(IBM):
         os.symlink(self.srcdir, self.bindir)
 
 
-def compile_one_file_java(p: Tuple[str, str]):
-    src, dst_dir = p
-    return subprocess.Popen(
-        ["javac", src, "-d", dst_dir],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-    )
-
-
 def instrument_one_dir_java(p: Tuple[str, str]):
     bin_dir, bin_instrumented_dir = p
     return subprocess.Popen(
@@ -566,7 +567,6 @@ class IBMJava250(IBM):
         info("Collecting codes to compile")
 
         for (i, p) in self.for_all_src():
-            p = p[:-1]  # .java will have an extra .
             if path.isdir(os.path.abspath(p)):
                 warning(f"{i}/{p} is a dir, is the dataset correct?")
             src_path = path.join(self.srcdir, str(i), str(p) + ".java")
@@ -579,7 +579,10 @@ class IBMJava250(IBM):
 
         info("Compiling all the code")
         parallel_subprocess(
-            files_to_compile, jobs, compile_one_file_java, on_exit=on_exit
+            files_to_compile,
+            jobs,
+            lambda r: compile_one_file(r, self.lang),
+            on_exit=on_exit,
         )
         info("Instrumenting all the code")
         parallel_subprocess(
