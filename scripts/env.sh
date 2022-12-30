@@ -2,6 +2,7 @@
 # Environment setup for non-docker user.
 export EMBDING_HOME=`pwd`
 export AFL=$EMBDING_HOME/AFLplusplus
+export KELINCI=$EMBDING_HOME/kelinci
 export LLVM=$HOME/clang+llvm
 export PATH=$PATH:$LLVM:$AFL
 export AFL_EXIT_ON_TIME=60

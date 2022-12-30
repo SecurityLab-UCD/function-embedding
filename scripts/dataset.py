@@ -484,6 +484,7 @@ class IBMPython800(IBM):
         for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.txtdir, str(i))):
                 p = path.splitext(p)[0]
+                p = path.splitext(p)[0]
                 txt_path = path.join(self.txtdir, str(i), str(p) + ".py")
                 src_path = path.join(self.srcdir, str(i), str(p) + ".py")
                 if not path.isfile(src_path):
@@ -496,6 +497,94 @@ class IBMPython800(IBM):
         info(f"Python code doesn't need to be compiled, using symlink to {self.srcdir}")
         # By default there is no preprocessing.
         os.symlink(self.srcdir, self.bindir)
+
+
+def compile_one_file_java(p: Tuple[str, str]):
+    src, dst_dir = p
+    return subprocess.Popen(
+        ["javac", src, "-d", dst_dir],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+
+
+def instrument_one_dir_java(p: Tuple[str, str]):
+    bin_dir, bin_instrumented_dir = p
+    return subprocess.Popen(
+        [
+            "java",
+            "-cp",
+            f"{KELINCI}/instrumentor/build/libs/kelinci.jar",
+            "edu.cmu.sv.kelinci.instrumentor.Instrumentor",
+            "-i",
+            bin_dir,
+            "-o",
+            bin_instrumented_dir,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+class IBMJava250(IBM):
+    def __init__(self, workdir):
+        IBM.__init__(self, workdir, "Java250")
+        self.instdir = path.join(self.workdir, "instrumented")
+
+    def preprocess_all(self):
+        if not path.isdir(self.txtdir):
+            warning(f"{self.txtdir} doesn't exist yet.")
+            self.download()
+        self.mkdir_if_doesnt_exist(self.srcdir)
+        info("Preprocessing text files into codes")
+        for i in tqdm(self.problems):
+            for p in os.listdir(path.join(self.txtdir, str(i))):
+                txt_path = path.join(self.txtdir, str(i), str(p))
+                src_path = path.join(self.srcdir, str(i), str(p))
+                if not path.isfile(src_path):
+                    class_name = p.split(".java")[-2]
+                    self.preprocess_one(txt_path, src_path, class_name)
+
+    def preprocess_one(self, txt_path, src_path, class_name):
+        with open(src_path, "w") as f:
+            with open(txt_path, "r") as txt:
+                code = txt.read()
+            code = self.remove_comments(code)
+            code = code.replace("Main", class_name)
+            f.write(code)
+
+    def build(self, jobs: int = CORES, on_exit=None, sample=100, built=None):
+        if built is None:
+            built = lambda bin_path: path.isfile(bin_path)
+
+        self.mkdir_if_doesnt_exist(self.bindir)
+        self.mkdir_if_doesnt_exist(self.instdir)
+        # Copy the files and do some preprocessing
+        files_to_compile: List[Tuple[str, str]] = []
+        dirs_to_instrument: Set[Tuple[str, str]] = set()
+
+        info("Collecting codes to compile")
+
+        for (i, p) in self.for_all_src():
+            p = p[:-1]  # .java will have an extra .
+            if path.isdir(os.path.abspath(p)):
+                warning(f"{i}/{p} is a dir, is the dataset correct?")
+            src_path = path.join(self.srcdir, str(i), str(p) + ".java")
+            bin_dir = path.join(self.bindir, str(i))
+            bin_path = path.join(bin_dir, str(p) + ".class")
+            inst_dir = path.join(self.instdir, str(i))
+            if not built(bin_path) and coin_toss(sample):
+                files_to_compile.append((src_path, bin_dir))
+                dirs_to_instrument.add((bin_dir, inst_dir))
+
+        info("Compiling all the code")
+        parallel_subprocess(
+            files_to_compile, jobs, compile_one_file_java, on_exit=on_exit
+        )
+        info("Instrumenting all the code")
+        parallel_subprocess(
+            dirs_to_instrument, jobs, instrument_one_dir_java, on_exit=None
+        )
 
 
 def main():
@@ -583,7 +672,7 @@ def main():
     elif args.dataset == "Python800":
         dataset = IBMPython800(workdir, args.dataset)
     elif args.dataset == "Java250":
-        dataset = IBM(workdir, args.dataset)
+        dataset = IBMJava250(workdir)
     else:
         unreachable("No dataset provided.")
 

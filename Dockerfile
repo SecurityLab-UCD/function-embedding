@@ -10,6 +10,7 @@ RUN pip install gdown
 ENV HOME=/root
 ENV EMBDING_HOME=$HOME
 ENV AFL=$EMBDING_HOME/AFLplusplus
+ENV KELINCI=$EMBDING_HOME/kelinci
 ENV PATH=$PATH:$HOME/clang+llvm/bin
 ENV LLVM=$HOME/clang+llvm
 

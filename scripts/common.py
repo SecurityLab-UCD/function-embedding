@@ -11,6 +11,11 @@ if AFL == None:
     error("AFL not set, please tell me where AFL++ is.")
     exit(1)
 
+KELINCI = os.getenv("KELINCI")
+if KELINCI == None:
+    error("KELINCI not set, please tell me where kelinci is.")
+    exit(1)
+
 LLVM = os.getenv("LLVM")
 if LLVM == None:
     error("LLVM not set, please tell me where clang+llvm is.")
