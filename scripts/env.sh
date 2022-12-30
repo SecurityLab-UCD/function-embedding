@@ -3,7 +3,7 @@
 export EMBDING_HOME=`pwd`
 export AFL=$EMBDING_HOME/AFLplusplus
 export LLVM=$HOME/clang+llvm
-export PATH=$PATH:$LLVM
+export PATH=$PATH:$LLVM:$AFL
 export AFL_EXIT_ON_TIME=60
 export AFL_NO_UI=1
 unset AFL_CUSTOM_MUTATOR_LIBRARY

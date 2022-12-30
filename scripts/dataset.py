@@ -44,21 +44,26 @@ def compile_one_file(p: Tuple[str, str]):
     )
 
 
-def fuzz_one_file(p: Tuple[str, str], timeout: int, seeds: str):
+def fuzz_one_file(p: Tuple[str, str], timeout: int, seeds: str, lang):
     bin, out = p
+    cmd = [
+        f"{AFL}/afl-fuzz",
+        "-D",
+        "-V",
+        str(timeout),
+        "-i",
+        seeds,
+        "-o",
+        out,
+        "-t",
+        "50",
+    ]
+    if lang == "Python":
+        cmd[0] = "py-afl-fuzz"
+        cmd.append("python3")
+    cmd.append(bin)
     process = subprocess.Popen(
-        [
-            f"{AFL}/afl-fuzz",
-            "-V",
-            str(timeout),
-            "-i",
-            seeds,
-            "-o",
-            out,
-            "-t",
-            "50",
-            bin,
-        ],
+        cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -143,7 +148,8 @@ class DataSet:
     def for_all_src(self):
         for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.srcdir, str(i))):
-                yield (i, p[:-4])
+                p = path.splitext(p)[0]
+                yield (i, p)
 
     def preprocess_all(self):
         if not path.isdir(self.srcdir):
@@ -231,7 +237,7 @@ class DataSet:
         parallel_subprocess(
             bins_to_fuzz,
             jobs,
-            lambda r: fuzz_one_file(r, timeout=timeout, seeds=seeds),
+            lambda r: fuzz_one_file(r, timeout=timeout, seeds=seeds, lang=self.lang),
             on_exit,
         )
 
@@ -363,7 +369,7 @@ class POJ104(DataSet):
         info("Preprocessing text files into codes")
         for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.txtdir, str(i))):
-                p = p[:-4]
+                p = path.splitext(p)[0]
                 txt_path = path.join(self.txtdir, str(i), str(p) + ".txt")
                 src_path = path.join(self.srcdir, str(i), str(p) + ".cpp")
                 if not path.isfile(src_path):
@@ -393,17 +399,27 @@ class POJ104(DataSet):
 
 
 class IBM(DataSet):
-    SUBSET = ["C++1000", "C++1400", "Python", "Java"]
+    SUBSET = ["C++1000", "C++1400", "Python800", "Java250"]
 
     def __init__(self, workdir, subset):
         self.subset = subset
         if subset not in IBM.SUBSET:
             error(f"Incorrect subset given, only {IBM.SUBSET} allowed.")
             exit(1)
-        DataSet.__init__(self, workdir, self.get_subset_name(), "C/C++")
+        DataSet.__init__(self, workdir, self.get_subset_name(), self.get_lang())
 
     def get_subset_name(self):
         return f"Project_CodeNet_{self.subset}"
+
+    def get_lang(self):
+        if self.subset in ["C++1000", "C++1400"]:
+            return "C/C++"
+        elif self.subset == "Python800":
+            return "Python"
+        elif self.subset == "Java250":
+            return "Java"
+        else:
+            unreachable("No language specified.")
 
     def get_tar_name(self):
         return f"{self.get_subset_name()}.tar.gz"
@@ -447,6 +463,41 @@ class IBM(DataSet):
             info("Extracted dataset already exists.")
 
 
+class IBMPython800(IBM):
+    def __init__(self, workdir, subset):
+        IBM.__init__(self, workdir, subset)
+
+    def preprocess_one(self, txt_path, src_path):
+        with open(src_path, "w") as f:
+            f.writelines(["import afl\n", "afl.init()\n", "import os\n"])
+            with open(txt_path, "r", errors="replace") as txt:
+                code = txt.read()
+                f.write(code)
+            f.writelines(["\nos._exit(0)\n"])
+
+    def preprocess_all(self):
+        if not path.isdir(self.txtdir):
+            warning(f"{self.txtdir} doesn't exist yet.")
+            self.download()
+        self.mkdir_if_doesnt_exist(self.srcdir)
+        info("Preprocessing text files into codes")
+        for i in tqdm(self.problems):
+            for p in os.listdir(path.join(self.txtdir, str(i))):
+                p = path.splitext(p)[0]
+                txt_path = path.join(self.txtdir, str(i), str(p) + ".py")
+                src_path = path.join(self.srcdir, str(i), str(p) + ".py")
+                if not path.isfile(src_path):
+                    self.preprocess_one(txt_path, src_path)
+
+    def build(self, jobs: int = CORES, on_exit=None, sample=100, built=None):
+        if not path.isdir(self.srcdir):
+            warning(f"{self.srcdir} doesn't exist yet, preprocessing first.")
+            self.preprocess_all()
+        info(f"Python code doesn't need to be compiled, using symlink to {self.srcdir}")
+        # By default there is no preprocessing.
+        os.symlink(self.srcdir, self.bindir)
+
+
 def main():
     logging.basicConfig()
     logging.getLogger().setLevel(logging.INFO)
@@ -456,7 +507,7 @@ def main():
         "-d",
         "--dataset",
         type=str,
-        choices=["POJ104", "C++1400", "C++1000"],
+        choices=["POJ104", "C++1400", "C++1000", "Python800", "Java250"],
         required=True,
         help="The dataset to copmile",
     )
@@ -526,9 +577,12 @@ def main():
     dataset = None
     if args.dataset == "POJ104":
         dataset = POJ104(workdir)
-    elif args.dataset == "C++1400":
+    # Keep the elif chain in case any dataset needs special handling
+    elif args.dataset in ["C++1400", "C++1000"]:
         dataset = IBM(workdir, args.dataset)
-    elif args.dataset == "C++1000":
+    elif args.dataset == "Python800":
+        dataset = IBMPython800(workdir, args.dataset)
+    elif args.dataset == "Java250":
         dataset = IBM(workdir, args.dataset)
     else:
         unreachable("No dataset provided.")
