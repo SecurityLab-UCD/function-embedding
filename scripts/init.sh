@@ -21,3 +21,10 @@ if [ ! -d $AFL ]; then
     git clone https://github.com/AFLplusplus/AFLplusplus.git
 fi
 cd $AFL; make -j; cd ..
+
+if [ ! -d $KELINCI ]; then
+    git clone https://github.com/isstac/kelinci.git
+fi
+cd $KELINCI/fuzzerside; make -j
+cd $KELINCI/instrumentor; gradle build
+cd $EMBDING_HOME

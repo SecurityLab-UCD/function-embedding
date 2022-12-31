@@ -15,6 +15,7 @@ from functools import partial
 import argparse
 import yaml
 from multiprocessing import Pool
+import socket
 
 
 def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
@@ -27,15 +28,20 @@ def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
         f.write(stderr)
 
 
-def compile_one_file(p: Tuple[str, str]):
+def compile_one_file(p: Tuple[str, str], lang: str):
     src, dst = p
-    # TODO: if src in blacklist, use another copmile strategy.
-    cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst]
+    cmd = []
 
-    # TODO: this method to get file id only works for POJ104
-    f_id = src.rsplit("src/")[1].split(".cpp")[0]
-    if f_id in POJ104_NO_MATH_H_LIST:
-        cmd.append("-D_NO_MATH_H_")
+    if lang == "C/C++":
+        # TODO: if src in blacklist, use another copmile strategy.
+        cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst]
+
+        # TODO: this method to get file id only works for POJ104
+        f_id = src.rsplit("src/")[1].split(".cpp")[0]
+        if f_id in POJ104_NO_MATH_H_LIST:
+            cmd.append("-D_NO_MATH_H_")
+    elif lang == "Java":
+        cmd = ["javac", src, "-d", dst]
 
     return subprocess.Popen(
         cmd,
@@ -185,7 +191,12 @@ class DataSet:
                 files_to_compile.append((src_path, bin_path))
 
         info("Compiling all the code")
-        parallel_subprocess(files_to_compile, jobs, compile_one_file, on_exit)
+        parallel_subprocess(
+            files_to_compile,
+            jobs,
+            lambda r: compile_one_file(r, lang=self.lang),
+            on_exit,
+        )
 
     def remove_comments(self, text: str) -> str:
         # https://stackoverflow.com/questions/241327/remove-c-and-c-comments-using-python
@@ -196,7 +207,7 @@ class DataSet:
             else:
                 return s
 
-        if self.lang == "C/C++":
+        if self.lang in ["C/C++", "Java"]:
             pattern = re.compile(
                 r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
                 re.DOTALL | re.MULTILINE,
@@ -484,6 +495,7 @@ class IBMPython800(IBM):
         for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.txtdir, str(i))):
                 p = path.splitext(p)[0]
+                p = path.splitext(p)[0]
                 txt_path = path.join(self.txtdir, str(i), str(p) + ".py")
                 src_path = path.join(self.srcdir, str(i), str(p) + ".py")
                 if not path.isfile(src_path):
@@ -496,6 +508,176 @@ class IBMPython800(IBM):
         info(f"Python code doesn't need to be compiled, using symlink to {self.srcdir}")
         # By default there is no preprocessing.
         os.symlink(self.srcdir, self.bindir)
+
+
+def instrument_one_dir_java(p: Tuple[str, str]):
+    bin_dir, bin_instrumented_dir = p
+    return subprocess.Popen(
+        [
+            "java",
+            "-cp",
+            f"{KELINCI}/instrumentor/build/libs/kelinci.jar",
+            "edu.cmu.sv.kelinci.instrumentor.Instrumentor",
+            "-i",
+            bin_dir,
+            "-o",
+            bin_instrumented_dir,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def fuzz_one_file_java(p: Tuple[str, str, str], timeout: int, seeds: str):
+    # bind a free port
+    sock = socket.socket()
+    sock.bind(("", 0))
+    port = str(sock.getsockname()[1])
+
+    bin_instrumented_dir, class_name, out = p
+
+    start_kelinci_server = [
+        "java",
+        "-cp",
+        bin_instrumented_dir,
+        "edu.cmu.sv.kelinci.Kelinci",
+        "--port",
+        port,
+        class_name,
+        "@@",
+    ]
+    run_afl = [
+        f"{AFL}/afl-fuzz",
+        "-D",
+        "-V",
+        str(timeout),
+        "-i",
+        seeds,
+        "-o",
+        out,
+        "-t",
+        "50",
+        f"{KELINCI}/fuzzerside/interface",
+        "@@",
+    ]
+    server = subprocess.Popen(
+        start_kelinci_server,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    process = subprocess.Popen(
+        run_afl,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    # Sleep half a second for AFL to bind core.
+    subprocess.run(["sleep", "0.5"])
+    return server, process
+
+
+class IBMJava250(IBM):
+    def __init__(self, workdir):
+        IBM.__init__(self, workdir, "Java250")
+        self.instdir = path.join(self.workdir, "instrumented")
+
+    def preprocess_all(self):
+        if not path.isdir(self.txtdir):
+            warning(f"{self.txtdir} doesn't exist yet.")
+            self.download()
+        self.mkdir_if_doesnt_exist(self.srcdir)
+        info("Preprocessing text files into codes")
+        for i in tqdm(self.problems):
+            for p in os.listdir(path.join(self.txtdir, str(i))):
+                txt_path = path.join(self.txtdir, str(i), str(p))
+                src_path = path.join(self.srcdir, str(i), str(p))
+                if not path.isfile(src_path):
+                    class_name = p.split(".java")[-2]
+                    self.preprocess_one(txt_path, src_path, class_name)
+
+    def preprocess_one(self, txt_path, src_path, class_name):
+        with open(src_path, "w") as f:
+            with open(txt_path, "r") as txt:
+                code = txt.read()
+            code = self.remove_comments(code)
+            code = code.replace("Main", class_name)
+            f.write(code)
+
+    def build(self, jobs: int = CORES, on_exit=None, sample=100, built=None):
+        if built is None:
+            built = lambda bin_path: path.isfile(bin_path)
+
+        self.mkdir_if_doesnt_exist(self.bindir)
+        self.mkdir_if_doesnt_exist(self.instdir)
+        # Copy the files and do some preprocessing
+        files_to_compile: List[Tuple[str, str]] = []
+        dirs_to_instrument: Set[Tuple[str, str]] = set()
+
+        info("Collecting codes to compile")
+
+        for (i, p) in self.for_all_src():
+            if path.isdir(os.path.abspath(p)):
+                warning(f"{i}/{p} is a dir, is the dataset correct?")
+            src_path = path.join(self.srcdir, str(i), str(p) + ".java")
+            bin_dir = path.join(self.bindir, str(i))
+            bin_path = path.join(bin_dir, str(p) + ".class")
+            inst_dir = path.join(self.instdir, str(i))
+            if not built(bin_path) and coin_toss(sample):
+                files_to_compile.append((src_path, bin_dir))
+                dirs_to_instrument.add((bin_dir, inst_dir))
+
+        info("Compiling all the code")
+        parallel_subprocess(
+            files_to_compile,
+            jobs,
+            lambda r: compile_one_file(r, self.lang),
+            on_exit=on_exit,
+        )
+        info("Instrumenting all the code")
+        parallel_subprocess(
+            dirs_to_instrument, jobs, instrument_one_dir_java, on_exit=None
+        )
+
+    def fuzz(
+        self,
+        jobs: int = CORES,
+        timeout=60,
+        seeds="seeds",
+        on_exit=None,
+        sample=100,
+        fuzzed=None,
+    ):
+        """
+        Fuzz the program
+        """
+        if fuzzed is None:
+            fuzzed = lambda out_path: ExprimentInfo(out_path).sufficiently_fuzzed()
+        self.mkdir_if_doesnt_exist(self.outdir)
+        bins_to_fuzz: List[Tuple[str, str, str]] = []
+        info("Collecting binaries to fuzz")
+        for i in tqdm(self.problems):
+            for p in os.listdir(path.join(self.bindir, str(i))):
+                if path.isdir(os.path.abspath(p)):
+                    warning(f"{i}/{p} is a dir, is the dataset correct?")
+                bin_dir = path.join(self.instdir, str(i))
+                class_name = p.split(".class")[0]
+                out_path = path.join(self.outdir, str(i), class_name)
+                if (
+                    path.isfile(path.join(bin_dir, str(p)))
+                    and not fuzzed(out_path)
+                    and coin_toss(sample)
+                    and "$" not in class_name
+                ):
+                    bins_to_fuzz.append((bin_dir, class_name, out_path))
+
+        print(len(bins_to_fuzz))
+        seeds = path.abspath(seeds)
+        info(f"Fuzzing all {len(bins_to_fuzz)} binaries")
+        parallel_subprocess_pair(
+            bins_to_fuzz,
+            jobs,
+            lambda r: fuzz_one_file_java(r, timeout=timeout, seeds=seeds),
+            on_exit,
+        )
 
 
 def main():
@@ -583,7 +765,7 @@ def main():
     elif args.dataset == "Python800":
         dataset = IBMPython800(workdir, args.dataset)
     elif args.dataset == "Java250":
-        dataset = IBM(workdir, args.dataset)
+        dataset = IBMJava250(workdir)
     else:
         unreachable("No dataset provided.")
 
