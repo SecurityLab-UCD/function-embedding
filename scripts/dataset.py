@@ -15,6 +15,7 @@ from functools import partial
 import argparse
 import yaml
 from multiprocessing import Pool
+import socket
 
 
 def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
@@ -527,6 +528,53 @@ def instrument_one_dir_java(p: Tuple[str, str]):
     )
 
 
+def fuzz_one_file_java(p: Tuple[str, str, str], timeout: int, seeds: str):
+    # bind a free port
+    sock = socket.socket()
+    sock.bind(("", 0))
+    port = str(sock.getsockname()[1])
+
+    bin_instrumented_dir, class_name, out = p
+
+    start_kelinci_server = [
+        "java",
+        "-cp",
+        bin_instrumented_dir,
+        "edu.cmu.sv.kelinci.Kelinci",
+        "--port",
+        port,
+        class_name,
+        "@@",
+    ]
+    run_afl = [
+        f"{AFL}/afl-fuzz",
+        "-D",
+        "-V",
+        str(timeout),
+        "-i",
+        seeds,
+        "-o",
+        out,
+        "-t",
+        "50",
+        f"{KELINCI}/fuzzerside/interface",
+        "@@",
+    ]
+    server = subprocess.Popen(
+        start_kelinci_server,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    process = subprocess.Popen(
+        run_afl,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    # Sleep half a second for AFL to bind core.
+    subprocess.run(["sleep", "0.5"])
+    return server, process
+
+
 class IBMJava250(IBM):
     def __init__(self, workdir):
         IBM.__init__(self, workdir, "Java250")
@@ -587,6 +635,48 @@ class IBMJava250(IBM):
         info("Instrumenting all the code")
         parallel_subprocess(
             dirs_to_instrument, jobs, instrument_one_dir_java, on_exit=None
+        )
+
+    def fuzz(
+        self,
+        jobs: int = CORES,
+        timeout=60,
+        seeds="seeds",
+        on_exit=None,
+        sample=100,
+        fuzzed=None,
+    ):
+        """
+        Fuzz the program
+        """
+        if fuzzed is None:
+            fuzzed = lambda out_path: ExprimentInfo(out_path).sufficiently_fuzzed()
+        self.mkdir_if_doesnt_exist(self.outdir)
+        bins_to_fuzz: List[Tuple[str, str, str]] = []
+        info("Collecting binaries to fuzz")
+        for i in tqdm(self.problems):
+            for p in os.listdir(path.join(self.bindir, str(i))):
+                if path.isdir(os.path.abspath(p)):
+                    warning(f"{i}/{p} is a dir, is the dataset correct?")
+                bin_dir = path.join(self.instdir, str(i))
+                class_name = p.split(".class")[0]
+                out_path = path.join(self.outdir, str(i), class_name)
+                if (
+                    path.isfile(path.join(bin_dir, str(p)))
+                    and not fuzzed(out_path)
+                    and coin_toss(sample)
+                    and "$" not in class_name
+                ):
+                    bins_to_fuzz.append((bin_dir, class_name, out_path))
+
+        print(len(bins_to_fuzz))
+        seeds = path.abspath(seeds)
+        info(f"Fuzzing all {len(bins_to_fuzz)} binaries")
+        parallel_subprocess_pair(
+            bins_to_fuzz,
+            jobs,
+            lambda r: fuzz_one_file_java(r, timeout=timeout, seeds=seeds),
+            on_exit,
         )
 
 

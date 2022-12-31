@@ -78,6 +78,51 @@ def parallel_subprocess(
     return ret
 
 
+def parallel_subprocess_pair(
+    iter: Iterable[__T],
+    jobs: int,
+    subprocess_creator: Callable[[__T], Tuple[subprocess.Popen, subprocess.Popen]],
+    on_exit: Optional[Callable[[subprocess.Popen], __R]] = None,
+) -> Dict[__T, __R]:
+    """
+    Creates `jobs` subprocesses that run in parallel.
+    `iter` contains input that is send to each subprocess.
+    `subprocess_creator` creates the subprocess and returns a pair of `Popen`.
+    After each subprocess ends, `on_exit` will go collect user defined input and return.
+    The return valus is a dictionary of inputs and outputs.
+
+    User has to guarantee elements in `iter` is unique, or the output may be incorrect.
+    fst elem of process pair will be killed when snd elem is finished,
+    """
+    ret = {}
+    processes: Set[Tuple[subprocess.Popen, subprocess.Popen, __T]] = set()
+    for input in tqdm(iter):
+        processes.add((*subprocess_creator(input), input))
+        if len(processes) * 2 >= jobs:
+            # wait for a child process to exit
+            os.wait()
+            exited_processes = [
+                (p1, p2, i) for p1, p2, i in processes if p2.poll() is not None
+            ]
+            for p1, p2, i in exited_processes:
+                processes.remove((p1, p2, i))
+                # kill server if its alive
+                if p1.poll() is None:
+                    p1.kill()
+                if on_exit is not None:
+                    ret[i] = on_exit(p2)
+    # wait for remaining processes to exit
+    for p1, p2, i in processes:
+        p2.wait()
+        # kill server if its alive
+        if p1.poll() is None:
+            p1.kill()
+        # let `on_exit` to decide wait for or kill the process
+        if on_exit is not None:
+            ret[i] = on_exit(p2)
+    return ret
+
+
 class ExprimentInfo:
     expr_path: str
     fuzzed: bool
