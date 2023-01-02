@@ -282,7 +282,9 @@ class DataSet:
             else:
                 info("All possible binaries has valid fuzzing results")
 
-    def postprocess(self, jobs: int = CORES, on_exit=None, sample=100, timeout="1m"):
+    def postprocess(
+        self, jobs: int = CORES, on_exit=lambda x: False, sample=100, timeout="1m"
+    ):
         """
         Run the program with fuzzing inputs
         """
@@ -317,8 +319,20 @@ class DataSet:
                     bins_to_run.append((bin_path, fuzz_input_path, output, input_csv))
 
         info(f"Runninng {len(bins_to_run)} binaries")
+        timeout_info = parallel_subprocess(
+            bins_to_run,
+            jobs,
+            partial(run_one_file, timeout=timeout),
+            on_exit=on_exit,
+        )
+        
+        need_to_remove = list(filter(timeout_info.get, timeout_info))
+        info(f"Removing {len(need_to_remove)} timeout outputs")
         parallel_subprocess(
-            bins_to_run, jobs, partial(run_one_file, timeout=timeout), on_exit=on_exit
+            need_to_remove,
+            jobs,
+            lambda p: subprocess.Popen(["rm", p[2]]),
+            on_exit=None,
         )
 
     def summarize(self):
@@ -799,7 +813,12 @@ def main():
     elif args.pipeline == "check":
         dataset.check_fuzz(jobs=args.jobs)
     elif args.pipeline == "postprocess":
-        dataset.postprocess(jobs=args.jobs, timeout=args.singletime, sample=args.sample)
+        dataset.postprocess(
+            jobs=args.jobs,
+            timeout=args.singletime,
+            sample=args.sample,
+            on_exit=lambda p: p.returncode == 124,
+        )
     elif args.pipeline == "summarize":
         dataset.summarize()
     else:
