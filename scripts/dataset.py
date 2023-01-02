@@ -495,7 +495,6 @@ class IBMPython800(IBM):
         for i in tqdm(self.problems):
             for p in os.listdir(path.join(self.txtdir, str(i))):
                 p = path.splitext(p)[0]
-                p = path.splitext(p)[0]
                 txt_path = path.join(self.txtdir, str(i), str(p) + ".py")
                 src_path = path.join(self.srcdir, str(i), str(p) + ".py")
                 if not path.isfile(src_path):
