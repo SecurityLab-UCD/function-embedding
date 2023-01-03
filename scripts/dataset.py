@@ -91,8 +91,13 @@ def run_one_file(paths: Tuple[str, str, str, str], timeout="1m"):
     with open(fuzz_in, "rb") as fin, open(output, "wb") as fout, open(
         input_csv, "wb"
     ) as ferr:
+        # remove output file if timeout
         return subprocess.Popen(
-            ["timeout", str(timeout), bin_to_run],
+            [
+                "bash",
+                "-c",
+                f"timeout {timeout} {bin_to_run}; if [[ $? -eq 124 ]]; then rm {output}; fi",
+            ],
             stdin=fin,
             stdout=fout,
             stderr=ferr,
@@ -282,9 +287,7 @@ class DataSet:
             else:
                 info("All possible binaries has valid fuzzing results")
 
-    def postprocess(
-        self, jobs: int = CORES, on_exit=lambda x: False, sample=100, timeout="1m"
-    ):
+    def postprocess(self, jobs: int = CORES, sample=100, timeout="1m"):
         """
         Run the program with fuzzing inputs
         """
@@ -323,15 +326,6 @@ class DataSet:
             bins_to_run,
             jobs,
             partial(run_one_file, timeout=timeout),
-            on_exit=on_exit,
-        )
-        
-        need_to_remove = list(filter(timeout_info.get, timeout_info))
-        info(f"Removing {len(need_to_remove)} timeout outputs")
-        parallel_subprocess(
-            need_to_remove,
-            jobs,
-            lambda p: subprocess.Popen(["rm", p[2]]),
             on_exit=None,
         )
 
@@ -813,12 +807,7 @@ def main():
     elif args.pipeline == "check":
         dataset.check_fuzz(jobs=args.jobs)
     elif args.pipeline == "postprocess":
-        dataset.postprocess(
-            jobs=args.jobs,
-            timeout=args.singletime,
-            sample=args.sample,
-            on_exit=lambda p: p.returncode == 124,
-        )
+        dataset.postprocess(jobs=args.jobs, timeout=args.singletime, sample=args.sample)
     elif args.pipeline == "summarize":
         dataset.summarize()
     else:
