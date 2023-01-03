@@ -91,8 +91,13 @@ def run_one_file(paths: Tuple[str, str, str, str], timeout="1m"):
     with open(fuzz_in, "rb") as fin, open(output, "wb") as fout, open(
         input_csv, "wb"
     ) as ferr:
+        # remove output file if timeout
         return subprocess.Popen(
-            ["timeout", str(timeout), bin_to_run],
+            [
+                "bash",
+                "-c",
+                f"timeout {timeout} {bin_to_run}; if [[ $? -eq 124 ]]; then rm {output}; fi",
+            ],
             stdin=fin,
             stdout=fout,
             stderr=ferr,
@@ -282,7 +287,7 @@ class DataSet:
             else:
                 info("All possible binaries has valid fuzzing results")
 
-    def postprocess(self, jobs: int = CORES, on_exit=None, sample=100, timeout="1m"):
+    def postprocess(self, jobs: int = CORES, sample=100, timeout="1m"):
         """
         Run the program with fuzzing inputs
         """
@@ -317,8 +322,11 @@ class DataSet:
                     bins_to_run.append((bin_path, fuzz_input_path, output, input_csv))
 
         info(f"Runninng {len(bins_to_run)} binaries")
-        parallel_subprocess(
-            bins_to_run, jobs, partial(run_one_file, timeout=timeout), on_exit=on_exit
+        timeout_info = parallel_subprocess(
+            bins_to_run,
+            jobs,
+            partial(run_one_file, timeout=timeout),
+            on_exit=None,
         )
 
     def summarize(self):
