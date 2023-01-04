@@ -34,7 +34,7 @@ def compile_one_file(p: Tuple[str, str], lang: str):
 
     if lang == "C/C++":
         # TODO: if src in blacklist, use another copmile strategy.
-        cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst]
+        cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "./encode2stderr.so", "--std=c++11", "-o", dst]
 
         # TODO: this method to get file id only works for POJ104
         f_id = src.rsplit("src/")[1].split(".cpp")[0]
