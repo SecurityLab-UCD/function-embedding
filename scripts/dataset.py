@@ -16,6 +16,7 @@ import argparse
 import yaml
 from multiprocessing import Pool
 import socket
+import pathlib
 
 
 def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
@@ -86,8 +87,16 @@ def format_one_file(src: str):
     )
 
 
-def run_one_file(paths: Tuple[str, str, str, str], timeout="1m"):
+def run_one_file(paths: Tuple[str, str, str, str], lang: str, timeout="1m"):
     bin_to_run, fuzz_in, output, input_csv = paths
+    run_cmd = ""
+    if lang == "C/C++":
+        run_cmd = bin_to_run
+    elif lang == "Java":
+        bin_dir = path.dirname(bin_to_run)
+        class_name = path.basename(bin_to_run)
+        run_cmd = f"java -cp {bin_dir} {class_name}"
+
     with open(fuzz_in, "rb") as fin, open(output, "wb") as fout, open(
         input_csv, "wb"
     ) as ferr:
@@ -96,7 +105,7 @@ def run_one_file(paths: Tuple[str, str, str, str], timeout="1m"):
             [
                 "bash",
                 "-c",
-                f"timeout {timeout} {bin_to_run}; if [[ $? -eq 124 ]]; then rm {output}; fi",
+                f"timeout {timeout} {run_cmd}; if [[ $? -eq 124 ]]; then rm {output}; fi",
             ],
             stdin=fin,
             stdout=fout,
@@ -294,38 +303,37 @@ class DataSet:
         bins_to_run: List[Tuple[str, str, str, str]] = []
 
         info("Collecting binaries to run")
-        for i in tqdm(self.problems):
-            for p in os.listdir(path.join(self.bindir, str(i))):
-                if path.isdir(os.path.abspath(p)):
-                    warning(f"{i}/{p} is a dir, is the dataset correct?")
+        for i, p in self.for_all_src():
+            if path.isdir(os.path.abspath(p)):
+                warning(f"{i}/{p} is a dir, is the dataset correct?")
 
-                bin_path = path.join(self.bindir, str(i), str(p))
-                fuzz_out = path.join(self.outdir, str(i), str(p), "default")
+            bin_path = path.join(self.bindir, str(i), str(p))
+            fuzz_out = path.join(self.outdir, str(i), str(p), "default")
 
-                # skip if current problem is not fuzzed nor selected by sample
-                if not (path.isdir(path.join(fuzz_out, "queue")) and coin_toss(sample)):
+            # skip if current problem is not fuzzed nor selected by sample
+            if not (path.isdir(path.join(fuzz_out, "queue")) and coin_toss(sample)):
+                continue
+
+            input_csv_dir = path.join(fuzz_out, "input_csv")
+            output_dir = path.join(fuzz_out, "output")
+            if not path.isdir(input_csv_dir):
+                os.makedirs(input_csv_dir)
+            if not path.isdir(output_dir):
+                os.makedirs(output_dir)
+
+            for q in os.listdir(path.join(fuzz_out, "queue")):
+                fuzz_input_path = path.join(fuzz_out, "queue", str(q))
+                if path.isdir(fuzz_input_path):
                     continue
-
-                input_csv_dir = path.join(fuzz_out, "input_csv")
-                output_dir = path.join(fuzz_out, "output")
-                if not path.isdir(input_csv_dir):
-                    os.makedirs(input_csv_dir)
-                if not path.isdir(output_dir):
-                    os.makedirs(output_dir)
-
-                for q in os.listdir(path.join(fuzz_out, "queue")):
-                    fuzz_input_path = path.join(fuzz_out, "queue", str(q))
-                    if path.isdir(fuzz_input_path):
-                        continue
-                    output = path.join(output_dir, str(q))
-                    input_csv = path.join(input_csv_dir, str(q) + ".csv")
-                    bins_to_run.append((bin_path, fuzz_input_path, output, input_csv))
+                output = path.join(output_dir, str(q))
+                input_csv = path.join(input_csv_dir, str(q) + ".csv")
+                bins_to_run.append((bin_path, fuzz_input_path, output, input_csv))
 
         info(f"Runninng {len(bins_to_run)} binaries")
         timeout_info = parallel_subprocess(
             bins_to_run,
             jobs,
-            partial(run_one_file, timeout=timeout),
+            lambda r: run_one_file(r, self.lang, timeout=timeout),
             on_exit=None,
         )
 
@@ -676,7 +684,6 @@ class IBMJava250(IBM):
                 ):
                     bins_to_fuzz.append((bin_dir, class_name, out_path))
 
-        print(len(bins_to_fuzz))
         seeds = path.abspath(seeds)
         info(f"Fuzzing all {len(bins_to_fuzz)} binaries")
         parallel_subprocess_pair(
