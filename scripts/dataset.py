@@ -96,6 +96,8 @@ def run_one_file(paths: Tuple[str, str, str, str], lang: str, timeout="1m"):
         bin_dir = path.dirname(bin_to_run)
         class_name = path.basename(bin_to_run).split(".class")[0]
         run_cmd = f"java -cp {bin_dir} {class_name}"
+    elif lang == "Python":
+        run_cmd = f"python3 {bin_to_run}"
 
     with open(fuzz_in, "rb") as fin, open(output, "wb") as fout, open(
         input_csv, "wb"
