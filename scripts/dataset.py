@@ -16,7 +16,6 @@ import argparse
 import yaml
 from multiprocessing import Pool
 import socket
-import pathlib
 
 
 def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
