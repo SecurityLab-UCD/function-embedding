@@ -34,7 +34,15 @@ def compile_one_file(p: Tuple[str, str], lang: str):
 
     if lang == "C/C++":
         # TODO: if src in blacklist, use another copmile strategy.
-        cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "./encode2stderr.so", "--std=c++11", "-o", dst]
+        cmd = [
+            f"{AFL}/afl-clang-fast++",
+            "-O0",
+            src,
+            "./encode2stderr.so",
+            "--std=c++11",
+            "-o",
+            dst,
+        ]
 
         # TODO: this method to get file id only works for POJ104
         f_id = src.rsplit("src/")[1].split(".cpp")[0]
@@ -164,7 +172,7 @@ class DataSet:
                 p = path.splitext(p)[0]
                 yield (i, p)
 
-    def preprocess_all(self):
+    def preprocess_all(self, encode: bool = False):
         if not path.isdir(self.srcdir):
             info("Preprocessing not set, using symlink...")
             if not path.isdir(self.txtdir):
@@ -363,10 +371,11 @@ class POJ104(DataSet):
         exec(open("preprocess.py").read())
         os.chdir(cur_path)
 
-    def preprocess_all(self):
+    def preprocess_all(self, encode: bool = False):
         if not path.isdir(self.txtdir):
             warning(f"{self.txtdir} doesn't exist yet.")
             self.download()
+        print(f"encode: {encode}")
         self.mkdir_if_doesnt_exist(self.srcdir)
         info("Preprocessing text files into codes")
         for i in tqdm(self.problems):
@@ -375,18 +384,19 @@ class POJ104(DataSet):
                 txt_path = path.join(self.txtdir, str(i), str(p) + ".txt")
                 src_path = path.join(self.srcdir, str(i), str(p) + ".cpp")
                 if not path.isfile(src_path):
-                    self.preprocess_one(txt_path, src_path)
+                    self.preprocess_one(txt_path, src_path, encode)
 
-    def preprocess_one(self, txt_path, src_path):
+    def preprocess_one(self, txt_path, src_path, encode: bool):
         with open(src_path, "w") as f:
             # cat $EMBDING_HOME/header.hpp >> $SRCDIR/$P.cpp
             with open(path.join(EMBDING_HOME, "header.hpp"), "r") as hpp:
                 header = hpp.read()
                 f.write(header)
             # cat $EMBDING_HOME/encode2stderr.hpp >> $SRCDIR/$P.cpp
-            with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
-                header = hpp.read()
-                f.write(header)
+            if encode:
+                with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
+                    header = hpp.read()
+                    f.write(header)
             # $LLVMPATH/bin/clang-format $TXTDIR/$P.txt > $SRCDIR/$P.temp.cpp
             # python3.8 $EMBDING_HOME/scripts/replace_input.py $SRCDIR/$P.temp.cpp >> $SRCDIR/$P.cpp
             if txt_path in self.format_list:
@@ -394,7 +404,10 @@ class POJ104(DataSet):
             else:
                 with open(txt_path, "r", errors="replace") as txt:
                     code = txt.read()
-            code = replace_file(self.remove_comments(code))
+
+            code = self.remove_comments(code)
+            if encode:
+                code = replace_file(code)
             # sed -i 's/void main/int main/g' $SRCDIR/$P.cpp
             code = code.replace("void main", "int main")
             f.write(code)
@@ -477,7 +490,7 @@ class IBMPython800(IBM):
                 f.write(code)
             f.writelines(["\nos._exit(0)\n"])
 
-    def preprocess_all(self):
+    def preprocess_all(self, encode: bool = False):
         if not path.isdir(self.txtdir):
             warning(f"{self.txtdir} doesn't exist yet.")
             self.download()
@@ -570,7 +583,7 @@ class IBMJava250(IBM):
         IBM.__init__(self, workdir, "Java250")
         self.instdir = path.join(self.workdir, "instrumented")
 
-    def preprocess_all(self):
+    def preprocess_all(self, encode: bool = False):
         if not path.isdir(self.txtdir):
             warning(f"{self.txtdir} doesn't exist yet.")
             self.download()
@@ -689,7 +702,7 @@ def main():
         "-j", "--jobs", type=int, help="Number of threads to use.", default=CORES
     )
     parser.add_argument(
-        "-e", "--errfile", type=str, help="The file name to dump stderr", default="O"
+        "-ef", "--errfile", type=str, help="The file name to dump stderr", default="O"
     )
     parser.add_argument(
         "-p",
@@ -734,6 +747,9 @@ def main():
         help="A string of python iterable object, or None",
         default="None",
     )
+    parser.add_argument('--encode', action='store_true')
+    parser.add_argument('--no-encode', dest='encode', action='store_false')
+    parser.set_defaults(encode=False)
 
     args = parser.parse_args()
     workdir = args.workdir if args.workdir != "" else args.dataset
@@ -767,14 +783,14 @@ def main():
     if args.pipeline == "all":
         dataset.download()
         dataset.update_problems()
-        dataset.preprocess_all()
+        dataset.preprocess_all(args.encode)
         dataset.build(jobs=args.jobs, sample=args.sample)
         dataset.fuzz(jobs=args.jobs, timeout=args.fuzztime, seeds=args.seeds)
         dataset.postprocess(jobs=args.jobs, timeout=args.singletime)
     elif args.pipeline == "download":
         dataset.download()
     elif args.pipeline == "preprocess":
-        dataset.preprocess_all()
+        dataset.preprocess_all(args.encode)
     elif args.pipeline == "compile":
         dataset.build(
             jobs=args.jobs,
