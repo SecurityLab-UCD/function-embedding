@@ -94,7 +94,7 @@ def run_one_file(paths: Tuple[str, str, str, str], lang: str, timeout="1m"):
         run_cmd = bin_to_run
     elif lang == "Java":
         bin_dir = path.dirname(bin_to_run)
-        class_name = path.basename(bin_to_run)
+        class_name = path.basename(bin_to_run).split(".class")[0]
         run_cmd = f"java -cp {bin_dir} {class_name}"
 
     with open(fuzz_in, "rb") as fin, open(output, "wb") as fout, open(
@@ -303,31 +303,32 @@ class DataSet:
         bins_to_run: List[Tuple[str, str, str, str]] = []
 
         info("Collecting binaries to run")
-        for i, p in self.for_all_src():
-            if path.isdir(os.path.abspath(p)):
-                warning(f"{i}/{p} is a dir, is the dataset correct?")
+        for i in tqdm(self.problems):
+            for p in os.listdir(path.join(self.bindir, str(i))):
+                if path.isdir(os.path.abspath(p)):
+                    warning(f"{i}/{p} is a dir, is the dataset correct?")
 
-            bin_path = path.join(self.bindir, str(i), str(p))
-            fuzz_out = path.join(self.outdir, str(i), str(p), "default")
+                bin_path = path.join(self.bindir, str(i), str(p))
+                fuzz_out = path.join(self.outdir, str(i), str(p), "default")
 
-            # skip if current problem is not fuzzed nor selected by sample
-            if not (path.isdir(path.join(fuzz_out, "queue")) and coin_toss(sample)):
-                continue
-
-            input_csv_dir = path.join(fuzz_out, "input_csv")
-            output_dir = path.join(fuzz_out, "output")
-            if not path.isdir(input_csv_dir):
-                os.makedirs(input_csv_dir)
-            if not path.isdir(output_dir):
-                os.makedirs(output_dir)
-
-            for q in os.listdir(path.join(fuzz_out, "queue")):
-                fuzz_input_path = path.join(fuzz_out, "queue", str(q))
-                if path.isdir(fuzz_input_path):
+                # skip if current problem is not fuzzed nor selected by sample
+                if not (path.isdir(path.join(fuzz_out, "queue")) and coin_toss(sample)):
                     continue
-                output = path.join(output_dir, str(q))
-                input_csv = path.join(input_csv_dir, str(q) + ".csv")
-                bins_to_run.append((bin_path, fuzz_input_path, output, input_csv))
+
+                input_csv_dir = path.join(fuzz_out, "input_csv")
+                output_dir = path.join(fuzz_out, "output")
+                if not path.isdir(input_csv_dir):
+                    os.makedirs(input_csv_dir)
+                if not path.isdir(output_dir):
+                    os.makedirs(output_dir)
+
+                for q in os.listdir(path.join(fuzz_out, "queue")):
+                    fuzz_input_path = path.join(fuzz_out, "queue", str(q))
+                    if path.isdir(fuzz_input_path):
+                        continue
+                    output = path.join(output_dir, str(q))
+                    input_csv = path.join(input_csv_dir, str(q) + ".csv")
+                    bins_to_run.append((bin_path, fuzz_input_path, output, input_csv))
 
         info(f"Runninng {len(bins_to_run)} binaries")
         timeout_info = parallel_subprocess(
@@ -675,7 +676,7 @@ class IBMJava250(IBM):
                     warning(f"{i}/{p} is a dir, is the dataset correct?")
                 bin_dir = path.join(self.instdir, str(i))
                 class_name = p.split(".class")[0]
-                out_path = path.join(self.outdir, str(i), class_name)
+                out_path = path.join(self.outdir, str(i), p)
                 if (
                     path.isfile(path.join(bin_dir, str(p)))
                     and not fuzzed(out_path)
