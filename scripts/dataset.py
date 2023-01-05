@@ -86,8 +86,18 @@ def format_one_file(src: str):
     )
 
 
-def run_one_file(paths: Tuple[str, str, str, str], timeout="1m"):
+def run_one_file(paths: Tuple[str, str, str, str], lang: str, timeout="1m"):
     bin_to_run, fuzz_in, output, input_csv = paths
+    run_cmd = ""
+    if lang == "C/C++":
+        run_cmd = bin_to_run
+    elif lang == "Java":
+        bin_dir = path.dirname(bin_to_run)
+        class_name = path.basename(bin_to_run).split(".class")[0]
+        run_cmd = f"java -cp {bin_dir} {class_name}"
+    elif lang == "Python":
+        run_cmd = f"python3 {bin_to_run}"
+
     with open(fuzz_in, "rb") as fin, open(output, "wb") as fout, open(
         input_csv, "wb"
     ) as ferr:
@@ -96,7 +106,7 @@ def run_one_file(paths: Tuple[str, str, str, str], timeout="1m"):
             [
                 "bash",
                 "-c",
-                f"timeout {timeout} {bin_to_run}; if [[ $? -eq 124 ]]; then rm {output}; fi",
+                f"timeout {timeout} {run_cmd}; if [[ $? -eq 124 ]]; then rm {output}; fi",
             ],
             stdin=fin,
             stdout=fout,
@@ -325,7 +335,7 @@ class DataSet:
         timeout_info = parallel_subprocess(
             bins_to_run,
             jobs,
-            partial(run_one_file, timeout=timeout),
+            lambda r: run_one_file(r, self.lang, timeout=timeout),
             on_exit=None,
         )
 
@@ -667,7 +677,7 @@ class IBMJava250(IBM):
                     warning(f"{i}/{p} is a dir, is the dataset correct?")
                 bin_dir = path.join(self.instdir, str(i))
                 class_name = p.split(".class")[0]
-                out_path = path.join(self.outdir, str(i), class_name)
+                out_path = path.join(self.outdir, str(i), p)
                 if (
                     path.isfile(path.join(bin_dir, str(p)))
                     and not fuzzed(out_path)
@@ -676,7 +686,6 @@ class IBMJava250(IBM):
                 ):
                     bins_to_fuzz.append((bin_dir, class_name, out_path))
 
-        print(len(bins_to_fuzz))
         seeds = path.abspath(seeds)
         info(f"Fuzzing all {len(bins_to_fuzz)} binaries")
         parallel_subprocess_pair(
