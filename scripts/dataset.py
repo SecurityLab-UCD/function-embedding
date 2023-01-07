@@ -114,14 +114,6 @@ def run_one_file(paths: Tuple[str, str, str, str], lang: str, timeout="1m"):
         )
 
 
-def check_one_fuzz_stat(fuzz_stat: str, min_thresh: int) -> bool:
-    if not path.exists(fuzz_stat):
-        return False
-    with open(fuzz_stat, "r") as f:
-        stat = yaml.safe_load(f)
-        return stat["run_time"] >= min_thresh
-
-
 def coin_toss(percentage: float):
     return random.random() <= percentage / 100.0
 
@@ -267,36 +259,6 @@ class DataSet:
             on_exit,
         )
 
-    def check_fuzz(self, jobs: int = CORES, min_thresh: int = 5):
-        """
-        Check Fuzzing Completeness
-        """
-        f_to_check: List[str] = []
-        info("Collecting problems to check")
-        for i in tqdm(os.listdir(self.bindir)):
-            for p in os.listdir(path.join(self.bindir, str(i))):
-                if path.isdir(os.path.abspath(p)):
-                    warning(f"{i}/{p} is a dir, is the dataset correct?")
-
-                bin_path = path.join(self.bindir, str(i), str(p))
-                if path.isfile(bin_path):
-                    fuzzer_stats = path.join(
-                        self.outdir, str(i), str(p), "default", "fuzzer_stats"
-                    )
-                    f_to_check.append(fuzzer_stats)
-
-        info(f"Checking all {len(f_to_check)} output directories")
-        with Pool(jobs) as p:
-            fuzz_stats = p.map(
-                partial(check_one_fuzz_stat, min_thresh=min_thresh), f_to_check
-            )
-            if not all(fuzz_stats):
-                warning(
-                    f"{fuzz_stats.count(False)}/{len(f_to_check)} binaries failed fuzzing"
-                )
-            else:
-                info("All possible binaries has valid fuzzing results")
-
     def postprocess(self, jobs: int = CORES, sample=100, timeout="1m"):
         """
         Run the program with fuzzing inputs
@@ -339,6 +301,18 @@ class DataSet:
             on_exit=None,
         )
 
+    def get_paths(self, i, p) -> Tuple[str, str]:
+        bin_path = path.join(self.bindir, str(i), str(p))
+        fuzz_out = path.join(self.outdir, str(i), str(p))
+
+        if self.lang == "Java":
+            bin_path += ".class"
+        elif self.lang == "Python":
+            bin_path += ".py"
+            fuzz_out += ".py"
+
+        return bin_path, fuzz_out
+
     def summarize(self):
         num_programs = 0
         num_built = 0
@@ -346,8 +320,7 @@ class DataSet:
         num_sufficiently_fuzzed = 0
         info("Summarizing dataset result")
         for (i, p) in self.for_all_src():
-            bin_path = path.join(self.bindir, str(i), str(p))
-            fuzz_out = path.join(self.outdir, str(i), str(p))
+            bin_path, fuzz_out = self.get_paths(i, p)
             num_programs += 1
             if path.isfile(bin_path):
                 num_built += 1
@@ -730,7 +703,6 @@ def main():
             "preprocess",
             "compile",
             "fuzz",
-            "check",
             "postprocess",
             "summarize",
         ],
@@ -813,8 +785,6 @@ def main():
         dataset.fuzz(
             jobs=args.jobs, timeout=args.fuzztime, seeds=args.seeds, sample=args.sample
         )
-    elif args.pipeline == "check":
-        dataset.check_fuzz(jobs=args.jobs)
     elif args.pipeline == "postprocess":
         dataset.postprocess(jobs=args.jobs, timeout=args.singletime, sample=args.sample)
     elif args.pipeline == "summarize":
