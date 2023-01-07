@@ -1,5 +1,6 @@
 from common import *
 from whitelist import *
+from fix_strategy import *
 from os import path
 import os
 from tqdm import tqdm
@@ -345,6 +346,9 @@ class DataSet:
         """
         )
 
+    def fix(self, errfile: str, encode: bool = False, jobs: int = CORES, on_exit=None):
+        warning("Fix strategy not implemented")
+
 
 class POJ104(DataSet):
     def __init__(self, workdir):
@@ -375,7 +379,6 @@ class POJ104(DataSet):
         if not path.isdir(self.txtdir):
             warning(f"{self.txtdir} doesn't exist yet.")
             self.download()
-        print(f"encode: {encode}")
         self.mkdir_if_doesnt_exist(self.srcdir)
         info("Preprocessing text files into codes")
         for i in tqdm(self.problems):
@@ -406,11 +409,31 @@ class POJ104(DataSet):
                     code = txt.read()
 
             code = self.remove_comments(code)
-            if encode:
-                code = replace_file(code)
+            code = replace_file(code, encode)
             # sed -i 's/void main/int main/g' $SRCDIR/$P.cpp
             code = code.replace("void main", "int main")
             f.write(code)
+
+    def fix(self, errfile: str, encode: bool, jobs: int = CORES, on_exit=None):
+        # apply fix scripts
+        set_global_DIR(self.txtdir, self.srcdir)
+        set_encode(encode)
+
+        with open(errfile, "r") as f:
+            lines = []
+            lines_in_file = f.readlines()
+            info("Converting stderr into CompilerReport")
+            for line in tqdm(lines_in_file):
+                lines.append(line[:-1])
+                if "generated." in line:
+                    cr = CompilerReport(lines)
+                    for r in cr.error_list:
+                        for strategy in FIX_STRATEGIES:
+                            if strategy.isMatch(r, cr):
+                                strategy.fix(cr.get_path(), r, cr)
+                    lines = []
+                    write_fixed_file(cr.get_path()[1])
+        self.build(jobs=jobs)
 
 
 class IBM(DataSet):
@@ -702,7 +725,7 @@ def main():
         "-j", "--jobs", type=int, help="Number of threads to use.", default=CORES
     )
     parser.add_argument(
-        "-ef", "--errfile", type=str, help="The file name to dump stderr", default="O"
+        "-e", "--errfile", type=str, help="The file name to dump stderr", default="O"
     )
     parser.add_argument(
         "-p",
@@ -715,6 +738,7 @@ def main():
             "download",
             "preprocess",
             "compile",
+            "fix",
             "fuzz",
             "postprocess",
             "summarize",
@@ -747,8 +771,8 @@ def main():
         help="A string of python iterable object, or None",
         default="None",
     )
-    parser.add_argument('--encode', action='store_true')
-    parser.add_argument('--no-encode', dest='encode', action='store_false')
+    parser.add_argument("--encode", action="store_true")
+    parser.add_argument("--no-encode", dest="encode", action="store_false")
     parser.set_defaults(encode=False)
 
     args = parser.parse_args()
@@ -785,6 +809,7 @@ def main():
         dataset.update_problems()
         dataset.preprocess_all(args.encode)
         dataset.build(jobs=args.jobs, sample=args.sample)
+        dataset.fix(args.errfile, jobs=args.jobs, encode=args.encode)
         dataset.fuzz(jobs=args.jobs, timeout=args.fuzztime, seeds=args.seeds)
         dataset.postprocess(jobs=args.jobs, timeout=args.singletime)
     elif args.pipeline == "download":
@@ -805,6 +830,8 @@ def main():
         dataset.postprocess(jobs=args.jobs, timeout=args.singletime, sample=args.sample)
     elif args.pipeline == "summarize":
         dataset.summarize()
+    elif args.pipeline == "fix":
+        dataset.fix(args.errfile, jobs=args.jobs, encode = args.encode)
     else:
         unreachable("Unkown pipeline provided")
 
