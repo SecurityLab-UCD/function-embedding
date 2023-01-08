@@ -1,10 +1,10 @@
 from common import *
 from typing import Callable, Tuple
 from compile_report import *
-from dataset import *
 from tqdm import tqdm
 from functools import partial
 import sys
+from dataset import format_one_file
 
 sys.path.append("./lib/sctokenizer")
 import sctokenizer
@@ -55,7 +55,7 @@ def assemble_tokens_and_write(tokens: List[Tuple[str, TokenType]], cpp_path: str
         f.write(reduce(lambda s, t: s + get_value(t), tokens, ""))
 
 
-def preprocess_file(cpp_path: str):
+def write_fixed_file(cpp_path: str):
     """preprocess a fixed temp-cpp file with headers
 
     Args:
@@ -248,13 +248,14 @@ def _fix_main_didnt_return_value(paths: Tuple[str, str], r: Report, cr: Compiler
         lines = f.readlines()
 
     # current f has no headers
-    with open(path.join(EMBDING_HOME, "header.hpp")) as f1, open(
-        path.join(EMBDING_HOME, "encode2stderr.hpp")
-    ) as f2:
-        offset = len(f1.readlines()) + len(f2.readlines())
-        if path.exists(path.join(EMBDING_HOME, "const_macro.hpp")):
-            with open(path.join(EMBDING_HOME, "const_macro.hpp")) as f3:
-                offset += len(f3.readlines())
+    offset = 0
+    with open(path.join(EMBDING_HOME, "header.hpp")) as f:
+        offset += len(f.readlines())
+    with open(path.join(EMBDING_HOME, "encode2stderr.hpp")) as f:
+        offset += len(f.readlines())
+    if path.exists(path.join(EMBDING_HOME, "const_macro.hpp")):
+        with open(path.join(EMBDING_HOME, "const_macro.hpp")) as f:
+            offset += len(f.readlines())
 
     (ret_ln, _) = r.get_loc()
     ret_ln -= offset
@@ -326,59 +327,7 @@ FIX_STRATEGIES = [
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fix a dataset to compile")
-    parser.add_argument(
-        "-d",
-        "--dataset",
-        type=str,
-        choices=["POJ104", "IBM1400", "IBM1000"],
-        required=True,
-        help="The dataset to copmile",
-    )
-    parser.add_argument(
-        "-w", "--workdir", type=str, default="", help="The workdir to use."
-    )
-    parser.add_argument(
-        "-j", "--jobs", type=int, help="Number of threads to use.", default=CORES
-    )
-    parser.add_argument(
-        "-f", "--errfile", type=str, help="The file name to dump stderr", default="O"
-    )
-
-    args = parser.parse_args()
-    workdir = args.workdir if args.workdir != "" else args.dataset
-
-    if path.exists(workdir):
-        warning(f"{workdir} exists")
-
-    dataset = None
-    if args.dataset == "POJ104":
-        dataset = POJ104(workdir)
-    elif args.dataset == "IBM1400":
-        dataset = IBM(workdir)
-    elif args.dataset == "IBM1000":
-        dataset = IBM(workdir)
-
-    set_global_DIR(dataset.txtdir, dataset.srcdir)
-    with open(args.errfile, "r") as f:
-        lines = []
-        lines_in_file = f.readlines()
-        info("Converting stderr into CompilerReport")
-        for line in tqdm(lines_in_file):
-            lines.append(line[:-1])
-            if "generated." in line:
-                cr = CompilerReport(lines)
-                for r in cr.error_list:
-                    for strategy in FIX_STRATEGIES:
-                        if strategy.isMatch(r, cr):
-                            strategy.fix(cr.get_path(), r, cr)
-                lines = []
-                preprocess_file(cr.get_path()[1])
-
-    dataset.compile(
-        jobs=args.jobs, on_exit=partial(dump_stderr_on_exit, args.errfile + "-fixed")
-    )
-    print(f"Compiled:{sum([len(files) for _, _, files in os.walk(dataset.bindir)])}")
+    pass_file
 
 
 if __name__ == "__main__":

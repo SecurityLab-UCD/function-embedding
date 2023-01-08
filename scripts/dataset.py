@@ -1,5 +1,6 @@
 from common import *
 from whitelist import *
+from fix_strategy import *
 from os import path
 import os
 from tqdm import tqdm
@@ -18,6 +19,8 @@ from multiprocessing import Pool
 import socket
 
 
+ENCODE_INPUT = False
+
 def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
     with open(errfile, "ab") as f:
         try:
@@ -34,12 +37,22 @@ def compile_one_file(p: Tuple[str, str], lang: str):
 
     if lang == "C/C++":
         # TODO: if src in blacklist, use another copmile strategy.
-        cmd = [f"{AFL}/afl-clang-fast++", "-O0", src, "--std=c++11", "-o", dst]
+        cmd = [
+            f"{AFL}/afl-clang-fast++",
+            "-O0",
+            src,
+            "./encode2stderr.so",
+            "--std=c++11",
+            "-o",
+            dst,
+        ]
 
         # TODO: this method to get file id only works for POJ104
         f_id = src.rsplit("src/")[1].split(".cpp")[0]
         if f_id in POJ104_NO_MATH_H_LIST:
             cmd.append("-D_NO_MATH_H_")
+        if ENCODE_INPUT:
+            cmd.append("-D_ENCODE_INPUT_")
     elif lang == "Java":
         cmd = ["javac", src, "-d", dst]
 
@@ -337,6 +350,9 @@ class DataSet:
         """
         )
 
+    def fix(self, errfile: str, jobs: int = CORES, on_exit=None):
+        warning("Fix strategy not implemented")
+
 
 class POJ104(DataSet):
     def __init__(self, workdir):
@@ -394,10 +410,32 @@ class POJ104(DataSet):
             else:
                 with open(txt_path, "r", errors="replace") as txt:
                     code = txt.read()
-            code = replace_file(self.remove_comments(code))
+
+            code = self.remove_comments(code)
+            code = replace_file(code, ENCODE_INPUT)
             # sed -i 's/void main/int main/g' $SRCDIR/$P.cpp
             code = code.replace("void main", "int main")
             f.write(code)
+
+    def fix(self, errfile: str, jobs: int = CORES, on_exit=None):
+        # apply fix scripts
+        set_global_DIR(self.txtdir, self.srcdir)
+
+        with open(errfile, "r") as f:
+            lines = []
+            lines_in_file = f.readlines()
+            info("Converting stderr into CompilerReport")
+            for line in tqdm(lines_in_file):
+                lines.append(line[:-1])
+                if "generated." in line:
+                    cr = CompilerReport(lines)
+                    for r in cr.error_list:
+                        for strategy in FIX_STRATEGIES:
+                            if strategy.isMatch(r, cr):
+                                strategy.fix(cr.get_path(), r, cr)
+                    lines = []
+                    write_fixed_file(cr.get_path()[1])
+        self.build(jobs=jobs)
 
 
 class IBM(DataSet):
@@ -702,6 +740,7 @@ def main():
             "download",
             "preprocess",
             "compile",
+            "fix",
             "fuzz",
             "postprocess",
             "summarize",
@@ -734,6 +773,9 @@ def main():
         help="A string of python iterable object, or None",
         default="None",
     )
+    parser.add_argument("--encode", action="store_true")
+    parser.add_argument("--no-encode", dest="encode", action="store_false")
+    parser.set_defaults(encode=False)
 
     args = parser.parse_args()
     workdir = args.workdir if args.workdir != "" else args.dataset
@@ -743,6 +785,9 @@ def main():
 
     if args.sample <= 0 or args.sample > 100:
         error("Sample rate has to be confined between 1 and 100")
+    
+    global ENCODE_INPUT
+    ENCODE_INPUT = args.encode
 
     dataset = None
     if args.dataset == "POJ104":
@@ -769,6 +814,7 @@ def main():
         dataset.update_problems()
         dataset.preprocess_all()
         dataset.build(jobs=args.jobs, sample=args.sample)
+        dataset.fix(args.errfile, jobs=args.jobs)
         dataset.fuzz(jobs=args.jobs, timeout=args.fuzztime, seeds=args.seeds)
         dataset.postprocess(jobs=args.jobs, timeout=args.singletime)
     elif args.pipeline == "download":
@@ -789,6 +835,8 @@ def main():
         dataset.postprocess(jobs=args.jobs, timeout=args.singletime, sample=args.sample)
     elif args.pipeline == "summarize":
         dataset.summarize()
+    elif args.pipeline == "fix":
+        dataset.fix(args.errfile, jobs=args.jobs)
     else:
         unreachable("Unkown pipeline provided")
 

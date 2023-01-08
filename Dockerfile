@@ -24,3 +24,5 @@ RUN cd $EMBDING_HOME && pip3 install -r requirements.txt
 COPY scripts $EMBDING_HOME/scripts
 COPY seeds $EMBDING_HOME/seeds
 COPY *.[h|c]pp $EMBDING_HOME/
+COPY Makefile $EMBDING_HOME/Makefile
+RUN cd $EMBDING_HOME && make encode2stderr.so

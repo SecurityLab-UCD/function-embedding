@@ -53,7 +53,7 @@ def replace_cin(line: str) -> str:
     return out_str
 
 
-def replace_line(line: str) -> str:
+def replace_line(line: str, encode: bool = True) -> str:
     # replace `gets` which is deprecated
     if "gets" in line:
         line = line.replace("gets", "GETS_ALT")
@@ -61,10 +61,13 @@ def replace_line(line: str) -> str:
         line = line.replace("null", "nullptr")
     if "Null" in line:
         line = line.replace("Null", "nullptr")
+    if not encode:
+        return line
+
     if "scanf" in line and "sscanf" not in line:
         # NOTE if there is any case that scanf and sscanf in same line,
         # add that file to format list
-        
+
         # check if no args, like scanf("\n");
         if line[line.find("(") + 1 : line.find(")")].split('"')[-1] == "":
             return line
@@ -78,11 +81,11 @@ def replace_line(line: str) -> str:
         return line
 
 
-def replace_file(f: str) -> str:
+def replace_file(f: str, encode: bool = False) -> str:
     # or replace_file : List[str] -> str
     # call open().readlines() outside
-    lines = f.splitlines(True)
-    return reduce(lambda a, b: a + b, map(replace_line, lines))
+    lines = f.splitlines(keepends=True)
+    return "".join(map(lambda l: replace_line(l, encode), lines))
 
 
 if __name__ == "__main__":
