@@ -73,10 +73,9 @@ def write_fixed_file(cpp_path: str):
             header = hpp.read()
             f.write(header)
         # cat $EMBDING_HOME/encode2stderr.hpp >> $SRCDIR/$P.cpp
-        if ENCODE:
-            with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
-                header = hpp.read()
-                f.write(header)
+        with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
+            header = hpp.read()
+            f.write(header)
         # if there is additional macro defined, write them to f
         const_macro_path = path.join(EMBDING_HOME, "const_macro.hpp")
         if path.exists(const_macro_path):
@@ -253,9 +252,8 @@ def _fix_main_didnt_return_value(paths: Tuple[str, str], r: Report, cr: Compiler
     offset = 0
     with open(path.join(EMBDING_HOME, "header.hpp")) as f:
         offset += len(f.readlines())
-    if ENCODE:
-        with open(path.join(EMBDING_HOME, "encode2stderr.hpp")) as f:
-            offset += len(f.readlines())
+    with open(path.join(EMBDING_HOME, "encode2stderr.hpp")) as f:
+        offset += len(f.readlines())
     if path.exists(path.join(EMBDING_HOME, "const_macro.hpp")):
         with open(path.join(EMBDING_HOME, "const_macro.hpp")) as f:
             offset += len(f.readlines())
@@ -265,11 +263,6 @@ def _fix_main_didnt_return_value(paths: Tuple[str, str], r: Report, cr: Compiler
     lines[ret_ln - 1] = lines[ret_ln - 1].replace("return", "return 0")
     with open(cpp_path + "~", "w") as f:
         f.writelines(lines)
-
-
-def set_encode(encode: bool):
-    global ENCODE
-    ENCODE = encode
 
 
 main_return_value = FixStrategy(

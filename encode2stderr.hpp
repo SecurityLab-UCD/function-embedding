@@ -46,6 +46,7 @@ int scanf_alt(const char *fmt, const char *names, Args const &...args) {
   return scanf_return_val;
 }
 
+#ifdef _ENCODE_INPUT_
 // do scanf and then print to stdout in format
 //  variable_name type value
 // Usage: same as scanf
@@ -69,3 +70,9 @@ int scanf_alt(const char *fmt, const char *names, Args const &...args) {
   }
 
 #define GETS_ALT(str) gets_alt(str, sizeof(str), stdin, #str)
+
+#else
+// `gets` was deprecated in C++11 and removed from C++14
+// so alway replace it
+#define GETS_ALT(str) fgets(str, sizeof(str), stdin)
+#endif

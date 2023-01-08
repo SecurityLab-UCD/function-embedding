@@ -19,6 +19,8 @@ from multiprocessing import Pool
 import socket
 
 
+ENCODE_INPUT = False
+
 def dump_stderr_on_exit(errfile: str, p: subprocess.Popen):
     with open(errfile, "ab") as f:
         try:
@@ -49,6 +51,8 @@ def compile_one_file(p: Tuple[str, str], lang: str):
         f_id = src.rsplit("src/")[1].split(".cpp")[0]
         if f_id in POJ104_NO_MATH_H_LIST:
             cmd.append("-D_NO_MATH_H_")
+        if ENCODE_INPUT:
+            cmd.append("-D_ENCODE_INPUT_")
     elif lang == "Java":
         cmd = ["javac", src, "-d", dst]
 
@@ -346,7 +350,7 @@ class DataSet:
         """
         )
 
-    def fix(self, errfile: str, encode: bool = False, jobs: int = CORES, on_exit=None):
+    def fix(self, errfile: str, jobs: int = CORES, on_exit=None):
         warning("Fix strategy not implemented")
 
 
@@ -396,10 +400,9 @@ class POJ104(DataSet):
                 header = hpp.read()
                 f.write(header)
             # cat $EMBDING_HOME/encode2stderr.hpp >> $SRCDIR/$P.cpp
-            if encode:
-                with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
-                    header = hpp.read()
-                    f.write(header)
+            with open(path.join(EMBDING_HOME, "encode2stderr.hpp"), "r") as hpp:
+                header = hpp.read()
+                f.write(header)
             # $LLVMPATH/bin/clang-format $TXTDIR/$P.txt > $SRCDIR/$P.temp.cpp
             # python3.8 $EMBDING_HOME/scripts/replace_input.py $SRCDIR/$P.temp.cpp >> $SRCDIR/$P.cpp
             if txt_path in self.format_list:
@@ -409,15 +412,14 @@ class POJ104(DataSet):
                     code = txt.read()
 
             code = self.remove_comments(code)
-            code = replace_file(code, encode)
+            code = replace_file(code, ENCODE_INPUT)
             # sed -i 's/void main/int main/g' $SRCDIR/$P.cpp
             code = code.replace("void main", "int main")
             f.write(code)
 
-    def fix(self, errfile: str, encode: bool, jobs: int = CORES, on_exit=None):
+    def fix(self, errfile: str, jobs: int = CORES, on_exit=None):
         # apply fix scripts
         set_global_DIR(self.txtdir, self.srcdir)
-        set_encode(encode)
 
         with open(errfile, "r") as f:
             lines = []
@@ -783,6 +785,9 @@ def main():
 
     if args.sample <= 0 or args.sample > 100:
         error("Sample rate has to be confined between 1 and 100")
+    
+    global ENCODE_INPUT
+    ENCODE_INPUT = args.encode
 
     dataset = None
     if args.dataset == "POJ104":
@@ -807,15 +812,15 @@ def main():
     if args.pipeline == "all":
         dataset.download()
         dataset.update_problems()
-        dataset.preprocess_all(args.encode)
+        dataset.preprocess_all()
         dataset.build(jobs=args.jobs, sample=args.sample)
-        dataset.fix(args.errfile, jobs=args.jobs, encode=args.encode)
+        dataset.fix(args.errfile, jobs=args.jobs)
         dataset.fuzz(jobs=args.jobs, timeout=args.fuzztime, seeds=args.seeds)
         dataset.postprocess(jobs=args.jobs, timeout=args.singletime)
     elif args.pipeline == "download":
         dataset.download()
     elif args.pipeline == "preprocess":
-        dataset.preprocess_all(args.encode)
+        dataset.preprocess_all()
     elif args.pipeline == "compile":
         dataset.build(
             jobs=args.jobs,
@@ -831,7 +836,7 @@ def main():
     elif args.pipeline == "summarize":
         dataset.summarize()
     elif args.pipeline == "fix":
-        dataset.fix(args.errfile, jobs=args.jobs, encode = args.encode)
+        dataset.fix(args.errfile, jobs=args.jobs)
     else:
         unreachable("Unkown pipeline provided")
 
