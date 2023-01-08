@@ -15,7 +15,6 @@ from tqdm import tqdm
 from replace_input import replace_file
 
 CPP_TYPE_SET = {"int", "float", "double", "char", "wchar", "bool", "void", "long"}
-ENCODE = False
 
 
 def tokenize(paths: Tuple[str, str]):
