@@ -177,7 +177,7 @@ class DataSet:
                 p = path.splitext(p)[0]
                 yield (i, p)
 
-    def preprocess_all(self, encode: bool = False):
+    def preprocess_all(self):
         if not path.isdir(self.srcdir):
             info("Preprocessing not set, using symlink...")
             if not path.isdir(self.txtdir):
@@ -379,7 +379,7 @@ class POJ104(DataSet):
         exec(open("preprocess.py").read())
         os.chdir(cur_path)
 
-    def preprocess_all(self, encode: bool = False):
+    def preprocess_all(self):
         if not path.isdir(self.txtdir):
             warning(f"{self.txtdir} doesn't exist yet.")
             self.download()
@@ -391,9 +391,9 @@ class POJ104(DataSet):
                 txt_path = path.join(self.txtdir, str(i), str(p) + ".txt")
                 src_path = path.join(self.srcdir, str(i), str(p) + ".cpp")
                 if not path.isfile(src_path):
-                    self.preprocess_one(txt_path, src_path, encode)
+                    self.preprocess_one(txt_path, src_path)
 
-    def preprocess_one(self, txt_path, src_path, encode: bool):
+    def preprocess_one(self, txt_path, src_path):
         with open(src_path, "w") as f:
             # cat $EMBDING_HOME/header.hpp >> $SRCDIR/$P.cpp
             with open(path.join(EMBDING_HOME, "header.hpp"), "r") as hpp:
@@ -515,7 +515,7 @@ class IBMPython800(IBM):
                 f.write(code)
             f.writelines(["\nos._exit(0)\n"])
 
-    def preprocess_all(self, encode: bool = False):
+    def preprocess_all(self):
         if not path.isdir(self.txtdir):
             warning(f"{self.txtdir} doesn't exist yet.")
             self.download()
@@ -608,7 +608,7 @@ class IBMJava250(IBM):
         IBM.__init__(self, workdir, "Java250")
         self.instdir = path.join(self.workdir, "instrumented")
 
-    def preprocess_all(self, encode: bool = False):
+    def preprocess_all(self):
         if not path.isdir(self.txtdir):
             warning(f"{self.txtdir} doesn't exist yet.")
             self.download()
