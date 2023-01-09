@@ -1,2 +1,3 @@
 pyyaml>=3.12
 python-afl>=0.7.3
+git+https://github.com/SecurityLab-UCD/sctokenizer.git#egg=sctokenizer

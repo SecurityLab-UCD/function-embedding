@@ -5,8 +5,6 @@ from tqdm import tqdm
 from functools import partial
 import sys
 from dataset import format_one_file
-
-sys.path.append("./lib/sctokenizer")
 import sctokenizer
 from sctokenizer import Source, TokenType, Token
 from functools import reduce

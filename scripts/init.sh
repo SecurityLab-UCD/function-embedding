@@ -28,5 +28,3 @@ fi
 cd $KELINCI/fuzzerside; make -j
 cd $KELINCI/instrumentor; gradle build
 cd $EMBDING_HOME
-
-make encode2stderr.so
