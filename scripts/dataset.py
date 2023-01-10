@@ -16,7 +16,6 @@ from functools import partial
 import argparse
 import yaml
 from multiprocessing import Pool
-import socket
 
 
 ENCODE_INPUT = False
@@ -320,6 +319,7 @@ class DataSet:
 
         if self.lang == "Java":
             bin_path += ".class"
+            fuzz_out += ".class"
         elif self.lang == "Python":
             bin_path += ".py"
             fuzz_out += ".py"
@@ -558,9 +558,7 @@ def instrument_one_dir_java(p: Tuple[str, str]):
 
 def fuzz_one_file_java(p: Tuple[str, str, str], timeout: int, seeds: str):
     # bind a free port
-    sock = socket.socket()
-    sock.bind(("", 0))
-    port = str(sock.getsockname()[1])
+    port = get_local_open_port()
 
     bin_instrumented_dir, class_name, out = p
 

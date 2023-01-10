@@ -5,6 +5,7 @@ from os import path
 from typing import Iterable, Callable, Set, Tuple, TypeVar, Optional, Dict
 import subprocess
 from tqdm import tqdm
+import socket
 
 AFL = os.getenv("AFL")
 if AFL == None:
@@ -99,7 +100,9 @@ def parallel_subprocess_pair(
     for input in tqdm(iter):
         processes.add((*subprocess_creator(input), input))
         if len(processes) * 2 >= jobs:
-            # wait for a child process to exit
+            # wait for two child process to exit
+            # NOTE: need to wait for two process to exit or fuzzer may not start
+            os.wait()
             os.wait()
             exited_processes = [
                 (p1, p2, i) for p1, p2, i in processes if p2.poll() is not None
@@ -153,3 +156,13 @@ class ExprimentInfo:
 
     def get_plot_data_path(self):
         return os.path.join(self.to_expr_path(), "default", "plot_data")
+
+
+def get_local_open_port() -> str:
+    """find a aviliable port on localhost"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("", 0))
+    s.listen(1)
+    port = s.getsockname()[1]
+    s.close()
+    return str(port)
