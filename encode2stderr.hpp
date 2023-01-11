@@ -11,15 +11,9 @@
 #include <tuple>
 #include <vector>
 
-const std::set<std::string> FORMAT_TYPES = {
-    "c",   "d", "e",  "E",  "f",  "g",  "hi", "hu",  "hd",
-    "i",   "l", "ld", "li", "lf", "Lf", "lu", "lli", "lld",
-    "llu", "o", "p",  "s",  "u",  "x",  "n",
-};
-
-std::vector<std::string> split_var_names(std::string names);
-std::vector<std::string> split_fmt_types(std::string fmt);
-void print_stderr(std::string name, std::string type, const void *val_ptr);
+char **split_var_names(const char *names, int n);
+std::vector<std::string> split_fmt_types(const char *fmt);
+void print_stderr(char *name, std::string type, const void *val_ptr);
 char *gets_alt(char *buffer, size_t buflen, FILE *fp, std::string name);
 
 template <class... Args>
@@ -31,18 +25,15 @@ int scanf_alt(const char *fmt, const char *names, Args const &...args) {
   const void *values[] = {args...};
 
   // a dynamic buff for names to avoid mem issue
-  size_t len = strlen(names) + 1;
-  char *buff = new char[len];
-  memset(buff, 0, len);
-  strcpy(buff, names);
-  std::vector<std::string> name_tokens = split_var_names(buff);
+  char **name_tokens = split_var_names(names, narg);
   std::vector<std::string> type_tokens = split_fmt_types(fmt);
-  assert(name_tokens.size() == narg);
   assert(type_tokens.size() == narg);
 
   for (int i = 0; i < narg; i++) {
     print_stderr(name_tokens[i], type_tokens[i], values[i]);
+    delete name_tokens[i];
   }
+  delete name_tokens;
   return scanf_return_val;
 }
 

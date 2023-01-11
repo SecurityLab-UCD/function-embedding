@@ -1,20 +1,35 @@
 #include "encode2stderr.hpp"
 
-std::vector<std::string> split_var_names(std::string names) {
-  // ToDo: change to C implementation
-  std::istringstream ss(names);
-  std::string token;
-  std::vector<std::string> res;
+char **split_var_names(const char *names, int n) {
+  char **names_arr = new char *[n];
+  const char *dlim = ", ";
 
-  while (std::getline(ss, token, ',')) {
-    // trim front white space
-    if (token[0] == ' ') {
-      token = token.substr(1);
-    }
-    res.push_back(token);
+  char names_cpy[64];
+  memset(names_cpy, '\0', sizeof(names));
+  strcpy(names_cpy, names);
+
+  int i = 0;
+  char *token = strtok(names_cpy, dlim);
+  char *buff = new char[sizeof(names)];
+  memset(buff, '\0', sizeof(names));
+  strcpy(buff, token);
+  names_arr[i++] = buff;
+  while ((token = strtok(NULL, dlim))) {
+    buff = new char[sizeof(names)];
+    memset(buff, '\0', sizeof(names));
+    strcpy(buff, token);
+    names_arr[i++] = buff;
   }
-  return res;
+
+  return names_arr;
 }
+
+const std::set<std::string> FORMAT_TYPES = {
+    "c",   "d", "e",  "E",  "f",  "g",  "hi", "hu",  "hd",
+    "i",   "l", "ld", "li", "lf", "Lf", "lu", "lli", "lld",
+    "llu", "o", "p",  "s",  "u",  "x",  "n",
+};
+
 
 std::vector<std::string> split_fmt_types(std::string fmt) {
   // ToDo: change to C implementation
@@ -57,7 +72,7 @@ std::vector<std::string> split_fmt_types(std::string fmt) {
   return res;
 }
 
-void print_stderr(std::string name, std::string type, const void *val_ptr) {
+void print_stderr(char *name, std::string type, const void *val_ptr) {
   std::string pfmt = "%s,%s,%" + type + "\n";
 
   // in POJ-104, only the following appears
@@ -65,31 +80,26 @@ void print_stderr(std::string name, std::string type, const void *val_ptr) {
   // according to
   // https://www.cs.uic.edu/~jbell/CourseNotes/C_Programming/DataTypesSummary.pdf
   if (type == "c") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(char *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), *(char *)val_ptr);
   } else if (type == "s") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), (char *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), (char *)val_ptr);
   } else if (type == "u") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(),
-            *(unsigned *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), *(unsigned *)val_ptr);
   } else if (type == "lu") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(),
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(),
             *(unsigned long *)val_ptr);
   } else if (type == "d") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(int *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), *(int *)val_ptr);
   } else if (type == "ld") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(), *(long *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), *(long *)val_ptr);
   } else if (type == "lld") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(),
-            *(long long *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), *(long long *)val_ptr);
   } else if (type == "hd") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(),
-            *(short *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), *(short *)val_ptr);
   } else if (type == "f") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(),
-            *(float *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), *(float *)val_ptr);
   } else if (type == "lf" || type == "Lf") {
-    fprintf(stderr, pfmt.c_str(), name.c_str(), type.c_str(),
-            *(double *)val_ptr);
+    fprintf(stderr, pfmt.c_str(), name, type.c_str(), *(double *)val_ptr);
   } else {
     assert(0);
   }
