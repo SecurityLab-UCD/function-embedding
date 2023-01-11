@@ -53,7 +53,7 @@ def assemble_tokens_and_write(tokens: List[Tuple[str, TokenType]], cpp_path: str
         f.write(reduce(lambda s, t: s + get_value(t), tokens, ""))
 
 
-def write_fixed_file(cpp_path: str):
+def write_fixed_file(cpp_path: str, encode: bool):
     """preprocess a fixed temp-cpp file with headers
 
     Args:
@@ -63,7 +63,7 @@ def write_fixed_file(cpp_path: str):
         return
 
     code = format_one_file(cpp_path + "~").stdout.read().decode()
-    code = replace_file(code)
+    code = replace_file(code, encode=encode)
     code = code.replace("void main", "int main")
     with open(cpp_path, "w") as f:
         with open(path.join(EMBDING_HOME, "header.hpp"), "r") as hpp:

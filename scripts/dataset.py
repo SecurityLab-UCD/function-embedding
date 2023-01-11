@@ -434,7 +434,7 @@ class POJ104(DataSet):
                             if strategy.isMatch(r, cr):
                                 strategy.fix(cr.get_path(), r, cr)
                     lines = []
-                    write_fixed_file(cr.get_path()[1])
+                    write_fixed_file(cr.get_path()[1], ENCODE_INPUT)
         self.build(jobs=jobs)
 
 
